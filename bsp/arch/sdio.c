@@ -4,148 +4,160 @@
 #include "stm32h7xx_ll_utils.h" // delay
 
 
+#define SDIO_CLR_ALL_FLAGS(SDMMCx)  (SDMMCx)->ICR = 0xFFFFFFFFUL;
+#define SDIO_ERROR_MASK             (SDMMC_STA_CCRCFAIL | SDMMC_STA_DCRCFAIL | \
+                                     SDMMC_STA_CTIMEOUT | SDMMC_STA_DTIMEOUT | \
+                                     SDMMC_STA_TXUNDERR | SDMMC_STA_RXOVERR)
 /**
- * @brief sdmmc1 gpios initializtion
- * @note ART-Pi board sdmmc1 bus use to sd memory card
+ * @brief SDMMCx GPIOs initializtion
  */
-static void mcu_sdmmc1_bus_gpio_init(void)
+static void
+hw_sdmmc_gpio_cfg(SDMMC_TypeDef *SDMMCx)
 {
-    // sdmmc1
-    //    clock      -> pc12
-    //    command    -> pd2
-    //    datas[0:3] -> pc[8:11]
-    LL_AHB4_GRP1_EnableClock(LL_AHB4_GRP1_PERIPH_GPIOC);
-    LL_AHB4_GRP1_EnableClock(LL_AHB4_GRP1_PERIPH_GPIOD);
-
     LL_GPIO_InitTypeDef gpio_structure = {0};
 
-    gpio_structure.Pin = LL_GPIO_PIN_8|LL_GPIO_PIN_9|LL_GPIO_PIN_10|LL_GPIO_PIN_11|LL_GPIO_PIN_12;
-    gpio_structure.Mode = LL_GPIO_MODE_ALTERNATE;
-    gpio_structure.Pull = LL_GPIO_PULL_UP;
-    gpio_structure.OutputType = LL_GPIO_OUTPUT_PUSHPULL;
-    gpio_structure.Alternate = LL_GPIO_AF_12;   // stm32h750xb datasheet
-    gpio_structure.Speed = LL_GPIO_SPEED_FREQ_VERY_HIGH;
-    LL_GPIO_Init(GPIOC, &gpio_structure);
+    if (SDMMC1 == SDMMCx) {
+        // sdmmc1
+        //    clock      -> pc12
+        //    command    -> pd2
+        //    datas[0:3] -> pc[8:11]
+        LL_AHB4_GRP1_EnableClock(LL_AHB4_GRP1_PERIPH_GPIOC);
+        LL_AHB4_GRP1_EnableClock(LL_AHB4_GRP1_PERIPH_GPIOD);
 
-    gpio_structure.Pin = LL_GPIO_PIN_2;
-    gpio_structure.Mode = LL_GPIO_MODE_ALTERNATE;
-    gpio_structure.Pull = LL_GPIO_PULL_UP;
-    gpio_structure.OutputType = LL_GPIO_OUTPUT_PUSHPULL;
-    gpio_structure.Alternate = LL_GPIO_AF_12;   
-    gpio_structure.Speed = LL_GPIO_SPEED_FREQ_VERY_HIGH;
-    LL_GPIO_Init(GPIOD, &gpio_structure);
+        gpio_structure.Pin = LL_GPIO_PIN_8|LL_GPIO_PIN_9|LL_GPIO_PIN_10|LL_GPIO_PIN_11|LL_GPIO_PIN_12;
+        gpio_structure.Mode = LL_GPIO_MODE_ALTERNATE;
+        gpio_structure.Pull = LL_GPIO_PULL_UP;
+        gpio_structure.OutputType = LL_GPIO_OUTPUT_PUSHPULL;
+        gpio_structure.Alternate = LL_GPIO_AF_12;
+        gpio_structure.Speed = LL_GPIO_SPEED_FREQ_VERY_HIGH;
+        LL_GPIO_Init(GPIOC, &gpio_structure);
+
+        gpio_structure.Pin = LL_GPIO_PIN_2;
+        gpio_structure.Mode = LL_GPIO_MODE_ALTERNATE;
+        gpio_structure.Pull = LL_GPIO_PULL_UP;
+        gpio_structure.OutputType = LL_GPIO_OUTPUT_PUSHPULL;
+        gpio_structure.Alternate = LL_GPIO_AF_12;   
+        gpio_structure.Speed = LL_GPIO_SPEED_FREQ_VERY_HIGH;
+        LL_GPIO_Init(GPIOD, &gpio_structure);
+    } else if (SDMMC2 == SDMMCx) {
+        // sdmmc2
+        //    clock      -> pd6
+        //    command    -> pd7
+        //    datas[0:3] -> pb14 pb15 pb3 pb4
+        LL_AHB4_GRP1_EnableClock(LL_AHB4_GRP1_PERIPH_GPIOB);
+        LL_AHB4_GRP1_EnableClock(LL_AHB4_GRP1_PERIPH_GPIOD);
+
+        LL_GPIO_InitTypeDef gpio_structure = {0};
+
+        gpio_structure.Pin = LL_GPIO_PIN_14|LL_GPIO_PIN_15|LL_GPIO_PIN_3|LL_GPIO_PIN_4;
+        gpio_structure.Mode = LL_GPIO_MODE_ALTERNATE;
+        gpio_structure.Pull = LL_GPIO_PULL_UP;
+        gpio_structure.OutputType = LL_GPIO_OUTPUT_PUSHPULL;
+        gpio_structure.Alternate = LL_GPIO_AF_9;
+        gpio_structure.Speed = LL_GPIO_SPEED_FREQ_VERY_HIGH;
+        LL_GPIO_Init(GPIOB, &gpio_structure);
+
+        gpio_structure.Pin = LL_GPIO_PIN_6 | LL_GPIO_PIN_7;
+        gpio_structure.Mode = LL_GPIO_MODE_ALTERNATE;
+        gpio_structure.Pull = LL_GPIO_PULL_UP;
+        gpio_structure.OutputType = LL_GPIO_OUTPUT_PUSHPULL;
+        gpio_structure.Alternate = LL_GPIO_AF_11;
+        gpio_structure.Speed = LL_GPIO_SPEED_FREQ_VERY_HIGH;
+        LL_GPIO_Init(GPIOD, &gpio_structure);
+    }
 }
 
-/**
- * @brief sdmmc2 gpios initializtion
- * @note ART-Pi board sdmmc2 bus use to wireless chip
- */
-static void mcu_sdmmc2_bus_gpio_init(void)
+static void
+hw_sdmmc_clk_reset(SDMMC_TypeDef *SDMMCx)
 {
-    // sdmmc2
-    //    clock      -> pd6
-    //    command    -> pd7
-    //    datas[0:3] -> pb14 pb15 pb3 pb4
-    LL_AHB4_GRP1_EnableClock(LL_AHB4_GRP1_PERIPH_GPIOB);
-    LL_AHB4_GRP1_EnableClock(LL_AHB4_GRP1_PERIPH_GPIOD);
-
-    LL_GPIO_InitTypeDef gpio_structure = {0};
-
-    gpio_structure.Pin = LL_GPIO_PIN_14|LL_GPIO_PIN_15|LL_GPIO_PIN_3|LL_GPIO_PIN_4;
-    gpio_structure.Mode = LL_GPIO_MODE_ALTERNATE;
-    gpio_structure.Pull = LL_GPIO_PULL_UP;
-    gpio_structure.OutputType = LL_GPIO_OUTPUT_PUSHPULL;
-    gpio_structure.Alternate = LL_GPIO_AF_9;    // stm32h750xb datasheet
-    gpio_structure.Speed = LL_GPIO_SPEED_FREQ_VERY_HIGH;
-    LL_GPIO_Init(GPIOB, &gpio_structure);
-
-    gpio_structure.Pin = LL_GPIO_PIN_6 | LL_GPIO_PIN_7;
-    gpio_structure.Mode = LL_GPIO_MODE_ALTERNATE;
-    gpio_structure.Pull = LL_GPIO_PULL_UP;
-    gpio_structure.OutputType = LL_GPIO_OUTPUT_PUSHPULL;
-    gpio_structure.Alternate = LL_GPIO_AF_11;    // stm32h750xb datasheet
-    gpio_structure.Speed = LL_GPIO_SPEED_FREQ_VERY_HIGH;
-    LL_GPIO_Init(GPIOD, &gpio_structure);
+    if (SDMMC1 == SDMMCx) {
+        LL_AHB3_GRP1_ForceReset(LL_AHB3_GRP1_PERIPH_SDMMC1);
+        LL_AHB3_GRP1_ReleaseReset(LL_AHB3_GRP1_PERIPH_SDMMC1);
+    } else if (SDMMC2 == SDMMCx) {
+        LL_AHB2_GRP1_ForceReset(LL_AHB2_GRP1_PERIPH_SDMMC2);
+        LL_AHB2_GRP1_ReleaseReset(LL_AHB2_GRP1_PERIPH_SDMMC2);
+    }
 }
 
-void mcu_sdio_init(SDMMC_TypeDef *sdmmc)
+static void
+hw_sdmmc_clk_enable(SDMMC_TypeDef *SDMMCx)
+{
+    if (SDMMC1 == SDMMCx) {
+        LL_AHB3_GRP1_EnableClock(LL_AHB3_GRP1_PERIPH_SDMMC1);
+    } else if (SDMMC2 == SDMMCx) {
+        LL_AHB2_GRP1_EnableClock(LL_AHB2_GRP1_PERIPH_SDMMC2);
+    }
+}
+
+void hw_sdmmc_init(SDMMC_TypeDef *SDMMCx)
 {
     SDMMC_InitTypeDef sdmmc_init_structure = {0};
 
-    if (sdmmc == SDMMC1) {
-        LL_AHB3_GRP1_EnableClock(LL_AHB3_GRP1_PERIPH_SDMMC1);
-        mcu_sdmmc1_bus_gpio_init();
-    } else if (sdmmc == SDMMC2) {
-        LL_AHB2_GRP1_EnableClock(LL_AHB2_GRP1_PERIPH_SDMMC2);
-        mcu_sdmmc2_bus_gpio_init();
-    } else {
-        return;
-    }
+    assert_param(IS_SDMMC_ALL_INSTANCE(SDMMCx));
 
-    sdmmc_init_structure.ClockDiv = SDMMC_INIT_CLK_DIV; // when sdmmc init clock speed < 400khz
-    sdmmc_init_structure.BusWide = SDMMC_BUS_WIDE_1B;   // FIXME how many bus lines when sdio initialize?
-    sdmmc_init_structure.ClockEdge= SDMMC_CLOCK_EDGE_RISING;
-    sdmmc_init_structure.ClockPowerSave = SDMMC_CLOCK_POWER_SAVE_DISABLE;
-    sdmmc_init_structure.HardwareFlowControl = SDMMC_HARDWARE_FLOW_CONTROL_DISABLE;
-    SDMMC_Init(sdmmc, sdmmc_init_structure);
+    SDMMC_PowerState_OFF(SDMMCx);
+    hw_sdmmc_clk_reset(SDMMCx);
+    SDIO_CLR_ALL_FLAGS(SDMMCx);
+    hw_sdmmc_gpio_cfg(SDMMCx);
+    // TODO: Enable SDMMC global interrupt
 
-    SDMMC_SetSDMMCReadWaitMode(sdmmc, SDMMC_READ_WAIT_MODE_CLK);
+    hw_sdmmc_clk_enable(SDMMCx);
+    sdmmc_init_structure.ClockDiv               = SDMMC_INIT_CLK_DIV; // when sdmmc init clock speed < 400khz
+    sdmmc_init_structure.ClockEdge              = SDMMC_CLOCK_EDGE_RISING;
+    sdmmc_init_structure.ClockPowerSave         = SDMMC_CLOCK_POWER_SAVE_DISABLE;
+    sdmmc_init_structure.BusWide                = SDMMC_BUS_WIDE_1B;   // FIXME how many bus lines when sdio initialize?
+    sdmmc_init_structure.HardwareFlowControl    = SDMMC_HARDWARE_FLOW_CONTROL_DISABLE;
+    SDMMC_Init(SDMMCx, sdmmc_init_structure);
+    SDMMC_SetSDMMCReadWaitMode(SDMMCx, SDMMC_READ_WAIT_MODE_CLK);
 
-    // SDMMC power on
-    SDMMC_PowerState_ON(sdmmc);
-
-    // Enable?
-    // sdmmc->CLKCR |= (1<<8UL);
-
+    SDMMC_PowerState_ON(SDMMCx);
     // FIXME after power on wait first 74(185us@400khz) SDMMC_CK cycles
-    LL_mDelay(1);
+    LL_mDelay(10);
 
-    // TODO dma configuration
-    // TODO sdmmc interrupt configuration
+    // TODO: Config SDMMC DMA
 }
 
-uint8_t mcu_sdio_cmd_with_resp(SDMMC_TypeDef *sdmmc, uint8_t cmd, uint8_t arg, uint32_t *resp)
+#define SDIO_TRANS_MAX_REENTRY      5U
+
+uint32_t
+hw_sdio_transfer(SDMMC_TypeDef *SDMMCx, uint8_t cmd,  uint32_t argument, uint32_t *resp)
 {
-    uint8_t ret = 0;
-    SDMMC_CmdInitTypeDef cmd_reg_structure = {0};
+    uint8_t reentry = 0U;
+    uint32_t temp = 0U;
+    uint32_t temp_cmd = 0U;
+    uint32_t count = SDMMC_CMDTIMEOUT * (SystemCoreClock/8U/1000U);
 
-    cmd_reg_structure.CmdIndex = cmd;
-    cmd_reg_structure.Argument = arg;
-    cmd_reg_structure.CPSM = SDMMC_CPSM_ENABLE;
-    cmd_reg_structure.Response = SDMMC_RESPONSE_SHORT;
-    cmd_reg_structure.WaitForInterrupt = SDMMC_WAIT_NO;
-    SDMMC_SendCommand(sdmmc, &cmd_reg_structure);
-
-    // check last command response index
-    if (cmd != (uint8_t)sdmmc->RESPCMD) {
-        return -1;
+    if (!resp) {
+        temp_cmd = (uint32_t) (cmd|SDMMC_RESPONSE_NO|SDMMC_WAIT_NO|SDMMC_CPSM_ENABLE);
+    } else {
+        temp_cmd = (uint32_t) (cmd|SDMMC_RESPONSE_SHORT|SDMMC_WAIT_NO|SDMMC_CPSM_ENABLE);
     }
 
-    // FIXME wait clock cycle
-    // LL_mDelay(1);
+begin:
+    if (reentry++ >= SDIO_TRANS_MAX_REENTRY) goto exit;
 
-    // FIXME which response register?
-    // *resp = sdmmc->RESP1;
-    // *resp = *(volatile uint32_t *)sdmmc->RESP2;
-    // *resp = *(volatile uint32_t *)sdmmc->RESP2;
+    SDIO_CLR_ALL_FLAGS(SDMMCx);
 
-    // TODO check error flag and timeout
-    return ret;
-}
+    SDMMCx->ARG = argument;
+    SDMMCx->CMD = temp_cmd;
 
-// FIXME LL library has defined those functions
-uint8_t mcu_sdio_cmd_no_resp(SDMMC_TypeDef *sdmmc, uint8_t cmd, uint32_t arg)
-{
-    uint8_t ret = 0;
-    SDMMC_CmdInitTypeDef cmd_reg_structure = {0};
+    do {
+        count--;
+        temp = SDMMCx->STA;
+        if (temp & SDIO_ERROR_MASK) goto begin;
+    } while (count && (temp & SDMMC_ICR_CMDSENTC) != 0);
 
-    cmd_reg_structure.CmdIndex = cmd;
-    cmd_reg_structure.Argument = arg;
-    cmd_reg_structure.CPSM = SDMMC_CPSM_ENABLE;
-    cmd_reg_structure.Response = SDMMC_RESPONSE_NO;
-    cmd_reg_structure.WaitForInterrupt = SDMMC_WAIT_NO;
-    SDMMC_SendCommand(sdmmc, &cmd_reg_structure);
+    if (!count) return SDMMC_ERROR_TIMEOUT;
 
-    // TODO check error flag and timeout
-    return (ret == 0);
+    if (resp) {
+        // check last command response index
+        if (cmd != SDMMCx->RESPCMD)
+            return SDMMC_ERROR_CMD_CRC_FAIL; 
+
+        // FIXME which response register?
+            *resp = SDMMCx->RESP1;
+    }
+
+exit:
+    return SDMMC_ERROR_NONE;
 }

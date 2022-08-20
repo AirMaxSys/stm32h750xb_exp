@@ -8,9 +8,8 @@
 extern "C" {
 #endif
 
-void mcu_sdio_init(SDMMC_TypeDef *sdmmc);
-uint8_t mcu_sdio_cmd_no_resp(SDMMC_TypeDef *sdmmc, uint8_t cmd, uint32_t arg);
-uint8_t mcu_sdio_cmd_with_resp(SDMMC_TypeDef *sdmmc, uint8_t cmd, uint8_t arg, uint32_t *resp);
+void hw_sdmmc_init(SDMMC_TypeDef *sdmmc);
+uint32_t hw_sdio_transfer(SDMMC_TypeDef *SDMMCx, uint8_t cmd,  uint32_t argument, uint32_t *resp);
 
 #ifdef  __cplusplus
 }
