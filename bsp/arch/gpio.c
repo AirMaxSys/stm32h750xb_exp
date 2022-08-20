@@ -80,17 +80,9 @@ void mcu_gpio_init(void)
 
 
   // WIFI control
-  //    WL_HOST_WAKE -> pe3  (input)
+  //    WL_HOST_WAKE -> pe3  (exti)
   //    WL_REG_ON    -> pc13 (output) WIFI function enabel
-  LL_GPIO_ResetOutputPin(GPIOE, LL_GPIO_PIN_3);
   LL_GPIO_ResetOutputPin(GPIOC, LL_GPIO_PIN_13);
-
-  GPIO_InitStruct.Pin = LL_GPIO_PIN_3;
-  GPIO_InitStruct.Mode = LL_GPIO_MODE_OUTPUT;
-  GPIO_InitStruct.Speed = LL_GPIO_SPEED_FREQ_LOW;
-  GPIO_InitStruct.OutputType = LL_GPIO_OUTPUT_PUSHPULL;
-  GPIO_InitStruct.Pull = LL_GPIO_PULL_UP;
-  LL_GPIO_Init(GPIOE, &GPIO_InitStruct);
 
   GPIO_InitStruct.Pin = LL_GPIO_PIN_13;
   GPIO_InitStruct.Mode = LL_GPIO_MODE_OUTPUT;
@@ -103,7 +95,14 @@ void mcu_gpio_init(void)
   //    BT_WAKE      -> pi10
   //    BT_RST_N     -> pi11 
   //    BT_HOST_WAKE -> pc0
+  LL_GPIO_ResetOutputPin(GPIOI, GPIO_PIN_11);
 
+  GPIO_InitStruct.Pin = LL_GPIO_PIN_11;
+  GPIO_InitStruct.Mode = LL_GPIO_MODE_OUTPUT;
+  GPIO_InitStruct.Speed = LL_GPIO_SPEED_FREQ_LOW;
+  GPIO_InitStruct.OutputType = LL_GPIO_OUTPUT_PUSHPULL;
+  GPIO_InitStruct.Pull = LL_GPIO_PULL_UP;
+  LL_GPIO_Init(GPIOI, &GPIO_InitStruct);
 }
 
 /* USER CODE BEGIN 2 */
