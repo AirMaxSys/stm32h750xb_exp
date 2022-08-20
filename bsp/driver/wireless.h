@@ -1,11 +1,14 @@
 #ifndef _WIRELESS_H_
 #define _WIRELESS_H_
 
+#include <stdio.h>
+#include <stdint.h>
+
 #ifdef  __cplusplus
     extern "C" {
 #endif
 
-void hw_wl_init_test(void);
+uint32_t wlan_sdio_enum(void);
 
 #ifdef  __cplusplus
 }

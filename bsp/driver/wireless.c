@@ -1,50 +1,40 @@
-#include <stdio.h>
-#include <stdint.h>
-#include "sdio.h"
-
 #include "stm32h7xx_ll_gpio.h"
 #include "stm32h7xx_ll_sdmmc.h"
 #include "stm32h7xx_ll_utils.h"
+#include "sdio.h"
+#include "tinylog.h"
 
-#define WL_HOST_ON()     LL_GPIO_SetOutputPin(GPIOE, LL_GPIO_PIN_3)
-#define WL_HOST_OFF()    LL_GPIO_ResetOutputPin(GPIOE, LL_GPIO_PIN_3)
+#define WLAN_PWR_ON()      LL_GPIO_SetOutputPin(GPIOC, LL_GPIO_PIN_13)
+#define WLAN_PWR_OFF()     LL_GPIO_ResetOutputPin(GPIOC, LL_GPIO_PIN_13)
 
-#define WL_REG_ON()      LL_GPIO_SetOutputPin(GPIOC, LL_GPIO_PIN_13)
-#define WL_REG_OFF()     LL_GPIO_ResetOutputPin(GPIOC, LL_GPIO_PIN_13)
+#define WLAN_SUCCESS        0x00000000UL
+#define WLAN_TIMEOUT        0x80000000UL
+
+#define WLAN_ENUM_MAX_REENTRY   500U
 
 static SDMMC_TypeDef *wl_sdio = SDMMC2;
 
-void hw_wl_init_test(void)
+uint32_t wlan_sdio_enum(void)
 {
     uint32_t data = 0, err;
-    uint8_t cnt = 0;
+    uint16_t cnt = 0;
 
-    WL_REG_ON();
-    WL_HOST_ON();
+    hw_sdmmc_init(wl_sdio);
 
-    LL_mDelay(10);
+    WLAN_PWR_ON();
+    LL_mDelay(2);
 
-    mcu_sdio_init(wl_sdio);
-
-    err = SDMMC_CmdGoIdleState(wl_sdio);
-    printf("err:0x%08lx\r\n", err);
-    mcu_sdio_cmd_no_resp(wl_sdio, 0x05, 0);
-    err = SDMMC_CmdSetRelAdd(wl_sdio, (uint16_t *)&data);
-    printf("CMD3 RCA:0x%08lx err:0x%08lx\r\n", data, err);
-
-#if 0
     do {
-        // cmd0
-        mcu_sdio_cmd_no_resp(wl_sdio, 0x00, 0);
-        // cmd5
-        mcu_sdio_cmd_no_resp(wl_sdio, 0x05, 0);
-        // cmd3 get RCA
-        // mcu_sdio_cmd_with_resp(wl_sdio, 0x03, 0, &data);
-        err = SDMMC_CmdSetRelAdd(wl_sdio, (uint16_t *)&data);
-        // SDMMC_CmdSetRelAdd(wl_sdio, &data);
-        printf("CMD3 RCA:0x%08lx err:0x%08lx\r\n", data, err);
-        LL_mDelay(10);
-    } while (cnt++ < 5);
-#endif
-    printf("SDMMC PWR state:%d\n", SDMMC_GetPowerState(wl_sdio));
+        SDMMC_CmdGoIdleState(wl_sdio);
+        err = hw_sdio_transfer(wl_sdio, 0x5U, 0x0U, NULL);
+        if (!err) printf("CMD5 ERR: 0x%08lx\r\n", err);
+        err = hw_sdio_transfer(wl_sdio, 0x3U, 0x0U, &data);
+        printf("%d CMD3 ERR:0x%08lx RESP:0x%08lx\r\n", cnt, err, data);
+        LL_mDelay(1);
+    } while (SDMMC_ERROR_NONE != err && cnt++ < WLAN_ENUM_MAX_REENTRY);
+    if (--cnt == WLAN_ENUM_MAX_REENTRY)
+        return WLAN_TIMEOUT;
+    printf("RCA:0x%08lx\r\n", data);
+
+    return WLAN_SUCCESS;
 }
