@@ -186,7 +186,11 @@ $(BUILD_DIR):
 # clean up
 #######################################
 clean:
-	-rm -fR $(BUILD_DIR)
+ifeq ($(OS), Windows_NT)
+	@del /Q /F $(BUILD_DIR)
+else
+	@rm -rf $(BUILD_DIR)/*
+endif
 
 #######################################
 # download img

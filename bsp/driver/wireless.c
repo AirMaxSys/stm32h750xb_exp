@@ -2,7 +2,6 @@
 #include "stm32h7xx_ll_sdmmc.h"
 #include "stm32h7xx_ll_utils.h"
 #include "sdio.h"
-#include "tinylog.h"
 
 #define WLAN_PWR_ON()      LL_GPIO_SetOutputPin(GPIOC, LL_GPIO_PIN_13)
 #define WLAN_PWR_OFF()     LL_GPIO_ResetOutputPin(GPIOC, LL_GPIO_PIN_13)

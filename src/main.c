@@ -99,9 +99,6 @@ int main(void)
     mcu_debug_uart_init();
     dbg_output_setup();
 
-    // test sdio
-    hw_wl_init_test();
-
     /* USER CODE END 2 */
 
     /* Infinite loop */
