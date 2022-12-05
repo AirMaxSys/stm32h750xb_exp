@@ -99,6 +99,7 @@ int main(void)
     mcu_debug_uart_init();
     dbg_output_setup();
 
+    wlan_sdio_enum();
     /* USER CODE END 2 */
 
     /* Infinite loop */

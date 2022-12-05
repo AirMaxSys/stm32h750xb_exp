@@ -7,7 +7,8 @@
 #define SDIO_CLR_ALL_FLAGS(SDMMCx)  (SDMMCx)->ICR = 0xFFFFFFFFUL;
 #define SDIO_ERROR_MASK             (SDMMC_STA_CCRCFAIL | SDMMC_STA_DCRCFAIL | \
                                      SDMMC_STA_CTIMEOUT | SDMMC_STA_DTIMEOUT | \
-                                     SDMMC_STA_TXUNDERR | SDMMC_STA_RXOVERR)
+                                     SDMMC_STA_TXUNDERR | SDMMC_STA_RXOVERR | SDMMC_STA_CMDREND)
+
 /**
  * @brief SDMMCx GPIOs initializtion
  */
@@ -119,19 +120,14 @@ void hw_sdmmc_init(SDMMC_TypeDef *SDMMCx)
 
 #define SDIO_TRANS_MAX_REENTRY      5U
 
-uint32_t
-hw_sdio_transfer(SDMMC_TypeDef *SDMMCx, uint8_t cmd,  uint32_t argument, uint32_t *resp)
+uint32_t hw_sdio_transfer(SDMMC_TypeDef *SDMMCx, uint8_t cmd,  uint32_t argument, uint32_t resp_type)
 {
     uint8_t reentry = 0U;
     uint32_t temp = 0U;
     uint32_t temp_cmd = 0U;
     uint32_t count = SDMMC_CMDTIMEOUT * (SystemCoreClock/8U/1000U);
 
-    if (!resp) {
-        temp_cmd = (uint32_t) (cmd|SDMMC_RESPONSE_NO|SDMMC_WAIT_NO|SDMMC_CPSM_ENABLE);
-    } else {
-        temp_cmd = (uint32_t) (cmd|SDMMC_RESPONSE_SHORT|SDMMC_WAIT_NO|SDMMC_CPSM_ENABLE);
-    }
+    temp_cmd = (uint32_t) (cmd|resp_type|SDMMC_WAIT_NO|SDMMC_CPSM_ENABLE);
 
 begin:
     if (reentry++ >= SDIO_TRANS_MAX_REENTRY) goto exit;
@@ -148,15 +144,6 @@ begin:
     } while (count && (temp & SDMMC_ICR_CMDSENTC) != 0);
 
     if (!count) return SDMMC_ERROR_TIMEOUT;
-
-    if (resp) {
-        // check last command response index
-        if (cmd != SDMMCx->RESPCMD)
-            return SDMMC_ERROR_CMD_CRC_FAIL; 
-
-        // FIXME which response register?
-            *resp = SDMMCx->RESP1;
-    }
 
 exit:
     return SDMMC_ERROR_NONE;

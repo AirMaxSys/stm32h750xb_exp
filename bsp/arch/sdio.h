@@ -9,7 +9,7 @@ extern "C" {
 #endif
 
 void hw_sdmmc_init(SDMMC_TypeDef *sdmmc);
-uint32_t hw_sdio_transfer(SDMMC_TypeDef *SDMMCx, uint8_t cmd,  uint32_t argument, uint32_t *resp);
+uint32_t hw_sdio_transfer(SDMMC_TypeDef *SDMMCx, uint8_t cmd,  uint32_t argument, uint32_t resp_type);
 
 #ifdef  __cplusplus
 }
