@@ -193,16 +193,15 @@ else
 endif
 
 #######################################
-# download img
+# upload firmware
 #######################################
 openocd_interface=openocd/stlink.cfg
 openocd_target=openocd/stm32h7x.cfg
 
-load:$(BUILD_DIR)/$(TARGET).elf
-	@openocd -f $(openocd_interface) -f $(openocd_target) \
-		-c "debug_level 0" \
-		-c "init" -c "reset halt" \
-		-c "program $< verify reset exit"
+upload:$(BUILD_DIR)/$(TARGET).bin
+	@openocd -f "interface\\stlink.cfg" -f "target\\stm32h7x.cfg" \
+		-c "adapter speed 10000" \
+		-c "program $< 0x08000000 verify reset exit"
 
 # set up GDB remote port
 # -c "gdb_port 1234"
