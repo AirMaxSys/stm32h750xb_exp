@@ -49,6 +49,11 @@
 /* Private macro -------------------------------------------------------------*/
 /* USER CODE BEGIN PM */
 
+#define LCD_CS_UNSELECT()     (LCD_CS_GPIO_Port->BSRR = (LCD_CS_Pin))
+#define LCD_CS_SELECT()       (LCD_CS_GPIO_Port->BSRR = (LCD_CS_Pin << 16))
+#define FLASH_CS_UNSELECT()   (FLASH_SPI_CS_GPIO_Port->BSRR = (FLASH_SPI_CS_Pin))
+#define FLASH_CS_SELECT()     (FLASH_SPI_CS_GPIO_Port->BSRR = (FLASH_SPI_CS_Pin << 16))
+
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
@@ -104,9 +109,16 @@ int main(void)
   MX_SPI2_Init();
   MX_UART4_Init();
   MX_USB_OTG_FS_PCD_Init();
+  MX_SPI1_Init();
   /* USER CODE BEGIN 2 */
 
-  wlan_sdio_enum();
+  uint8_t data[10] = {0x0};
+
+  // wlan_sdio_enum();
+
+  data[0] = 0x4;
+  data[1] = 0x5A;
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -117,6 +129,19 @@ int main(void)
 
     /* USER CODE BEGIN 3 */
     led_blink(LED_COLOR_RED, 500);
+
+    FLASH_CS_SELECT();
+    HAL_SPI_TransmitReceive(&hspi1, data, &data[2], 2, 0xFFFF);
+    // HAL_SPI_Receive(&hspi1, data, 4, 0xFFFF);
+    FLASH_CS_UNSELECT();
+
+    LCD_CS_SELECT();
+    HAL_Delay(2);
+    HAL_SPI_Transmit(&hspi2, data, 2, 0xFFFF);
+    HAL_SPI_Receive(&hspi2, data, 4, 0xFFFF);
+    LCD_CS_UNSELECT();
+
+    printf("RDID:0x%08x\r\n", (data[3]<<24)|(data[2]<<16)|(data[1]<<8)|(data[0]));
   }
   /* USER CODE END 3 */
 }
