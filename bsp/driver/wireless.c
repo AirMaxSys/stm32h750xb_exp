@@ -95,7 +95,7 @@ uint32_t wlan_sdio_enum(void)
     hw_sdmmc_init(wl_sdio);
 
     WLAN_PWR_ON();
-    LL_mDelay(2);
+    HAL_Delay(2);
 
     do {
         // The host send CMD0 to make card going to IDLE state.
@@ -103,7 +103,7 @@ uint32_t wlan_sdio_enum(void)
         if (err != SDMMC_ERROR_NONE)
             printf("SDIO go to IDLE error!\r\n");
 
-        LL_mDelay(50);
+        HAL_Delay(50);
 
         // IO-aware card initialize with CMD5 and the host will get the R4 response.
         err = hw_sdio_transfer(wl_sdio, 0x5U, 0x0U, SDMMC_RESPONSE_NO);
@@ -129,7 +129,7 @@ uint32_t wlan_sdio_enum(void)
         err = sdio_recv_shortcrc(0x07, &data);
         printf("CMD7 RESP: 0x%08lx\r\n", data);
 
-        LL_mDelay(1);
+        HAL_Delay(1);
     } while (SDMMC_ERROR_NONE != err && cnt++ < WLAN_ENUM_MAX_REENTRY);
 
     if (--cnt == WLAN_ENUM_MAX_REENTRY) {

@@ -15,56 +15,17 @@
 static void
 hw_sdmmc_gpio_cfg(SDMMC_TypeDef *SDMMCx)
 {
-    LL_GPIO_InitTypeDef gpio_structure = {0};
 
     if (SDMMC1 == SDMMCx) {
         // sdmmc1
         //    clock      -> pc12
         //    command    -> pd2
         //    datas[0:3] -> pc[8:11]
-        LL_AHB4_GRP1_EnableClock(LL_AHB4_GRP1_PERIPH_GPIOC);
-        LL_AHB4_GRP1_EnableClock(LL_AHB4_GRP1_PERIPH_GPIOD);
-
-        gpio_structure.Pin = LL_GPIO_PIN_8|LL_GPIO_PIN_9|LL_GPIO_PIN_10|LL_GPIO_PIN_11|LL_GPIO_PIN_12;
-        gpio_structure.Mode = LL_GPIO_MODE_ALTERNATE;
-        gpio_structure.Pull = LL_GPIO_PULL_UP;
-        gpio_structure.OutputType = LL_GPIO_OUTPUT_PUSHPULL;
-        gpio_structure.Alternate = LL_GPIO_AF_12;
-        gpio_structure.Speed = LL_GPIO_SPEED_FREQ_VERY_HIGH;
-        LL_GPIO_Init(GPIOC, &gpio_structure);
-
-        gpio_structure.Pin = LL_GPIO_PIN_2;
-        gpio_structure.Mode = LL_GPIO_MODE_ALTERNATE;
-        gpio_structure.Pull = LL_GPIO_PULL_UP;
-        gpio_structure.OutputType = LL_GPIO_OUTPUT_PUSHPULL;
-        gpio_structure.Alternate = LL_GPIO_AF_12;   
-        gpio_structure.Speed = LL_GPIO_SPEED_FREQ_VERY_HIGH;
-        LL_GPIO_Init(GPIOD, &gpio_structure);
     } else if (SDMMC2 == SDMMCx) {
         // sdmmc2
         //    clock      -> pd6
         //    command    -> pd7
         //    datas[0:3] -> pb14 pb15 pb3 pb4
-        LL_AHB4_GRP1_EnableClock(LL_AHB4_GRP1_PERIPH_GPIOB);
-        LL_AHB4_GRP1_EnableClock(LL_AHB4_GRP1_PERIPH_GPIOD);
-
-        LL_GPIO_InitTypeDef gpio_structure = {0};
-
-        gpio_structure.Pin = LL_GPIO_PIN_14|LL_GPIO_PIN_15|LL_GPIO_PIN_3|LL_GPIO_PIN_4;
-        gpio_structure.Mode = LL_GPIO_MODE_ALTERNATE;
-        gpio_structure.Pull = LL_GPIO_PULL_UP;
-        gpio_structure.OutputType = LL_GPIO_OUTPUT_PUSHPULL;
-        gpio_structure.Alternate = LL_GPIO_AF_9;
-        gpio_structure.Speed = LL_GPIO_SPEED_FREQ_VERY_HIGH;
-        LL_GPIO_Init(GPIOB, &gpio_structure);
-
-        gpio_structure.Pin = LL_GPIO_PIN_6 | LL_GPIO_PIN_7;
-        gpio_structure.Mode = LL_GPIO_MODE_ALTERNATE;
-        gpio_structure.Pull = LL_GPIO_PULL_UP;
-        gpio_structure.OutputType = LL_GPIO_OUTPUT_PUSHPULL;
-        gpio_structure.Alternate = LL_GPIO_AF_11;
-        gpio_structure.Speed = LL_GPIO_SPEED_FREQ_VERY_HIGH;
-        LL_GPIO_Init(GPIOD, &gpio_structure);
     }
 }
 
@@ -113,7 +74,7 @@ void hw_sdmmc_init(SDMMC_TypeDef *SDMMCx)
 
     SDMMC_PowerState_ON(SDMMCx);
     // FIXME after power on wait first 74(185us@400khz) SDMMC_CK cycles
-    LL_mDelay(10);
+    HAL_Delay(10);
 
     // TODO: Config SDMMC DMA
 }

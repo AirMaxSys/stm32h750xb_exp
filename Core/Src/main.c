@@ -20,8 +20,6 @@
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
 #include "adc.h"
-#include "crc.h"
-#include "dma.h"
 #include "i2c.h"
 #include "sdmmc.h"
 #include "spi.h"
@@ -31,9 +29,11 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include <stdio.h>
+#include <string.h>
 #include "led.h"
 #include "dbg_output.h"
-#include "wireless.h"
+//#include "wireless.h"
 
 /* USER CODE END Includes */
 
@@ -51,6 +51,9 @@
 
 #define LCD_CS_UNSELECT()     (LCD_CS_GPIO_Port->BSRR = (LCD_CS_Pin))
 #define LCD_CS_SELECT()       (LCD_CS_GPIO_Port->BSRR = (LCD_CS_Pin << 16))
+#define LCD_DAT()             (LCD_A0_GPIO_Port->BSRR = (LCD_A0_Pin))
+#define LCD_CMD()             (LCD_A0_GPIO_Port->BSRR = (LCD_A0_Pin << 16))
+
 #define FLASH_CS_UNSELECT()   (FLASH_SPI_CS_GPIO_Port->BSRR = (FLASH_SPI_CS_Pin))
 #define FLASH_CS_SELECT()     (FLASH_SPI_CS_GPIO_Port->BSRR = (FLASH_SPI_CS_Pin << 16))
 
@@ -60,10 +63,12 @@
 
 /* USER CODE BEGIN PV */
 
+  uint8_t data[10] = {0x0};
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
+void PeriphCommonClock_Config(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -95,29 +100,24 @@ int main(void)
   /* Configure the system clock */
   SystemClock_Config();
 
+/* Configure the peripherals common clocks */
+  PeriphCommonClock_Config();
+
   /* USER CODE BEGIN SysInit */
 
   /* USER CODE END SysInit */
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
-  MX_DMA_Init();
   MX_SDMMC1_SD_Init();
   MX_ADC3_Init();
-  MX_CRC_Init();
   MX_I2C4_Init();
   MX_SPI2_Init();
   MX_UART4_Init();
   MX_USB_OTG_FS_PCD_Init();
   MX_SPI1_Init();
   /* USER CODE BEGIN 2 */
-
-  uint8_t data[10] = {0x0};
-
   // wlan_sdio_enum();
-
-  data[0] = 0x4;
-  data[1] = 0x5A;
 
   /* USER CODE END 2 */
 
@@ -129,19 +129,55 @@ int main(void)
 
     /* USER CODE BEGIN 3 */
     led_blink(LED_COLOR_RED, 500);
+#if 1
+    FLASH_CS_SELECT();
+    data[0] = 0x90;
+    data[1] = 0x0;
+    data[2] = 0x0;
+    data[3] = 0x0;
+    HAL_SPI_Transmit(&hspi1, data, 4, 0xFFFF);
+    HAL_SPI_TransmitReceive(&hspi1, &data[5], data, 2, 0xF);
+    FLASH_CS_UNSELECT();
+    printf("FALSH ID:0x%02x 0x%02x\r\n", data[0], data[1]);
 
     FLASH_CS_SELECT();
-    HAL_SPI_TransmitReceive(&hspi1, data, &data[2], 2, 0xFFFF);
-    // HAL_SPI_Receive(&hspi1, data, 4, 0xFFFF);
+    data[0] = 0x9F;
+    HAL_SPI_Transmit(&hspi1, data, 1, 0xFFFF);
+    HAL_SPI_TransmitReceive(&hspi1, &data[5], data, 3, 0xF);
     FLASH_CS_UNSELECT();
+    printf("ID:0x%02x 0x%02x 0x%02x\r\n", data[0], data[1], data[2]);
+#endif
 
     LCD_CS_SELECT();
-    HAL_Delay(2);
-    HAL_SPI_Transmit(&hspi2, data, 2, 0xFFFF);
-    HAL_SPI_Receive(&hspi2, data, 4, 0xFFFF);
+    data[0] = 0x4;
+    LCD_CMD();
+    HAL_SPI_Transmit(&hspi2, data, 1, 0xFF);
+    LCD_CMD();
+    HAL_SPI_Receive(&hspi2, &data, 4, 0xFF);
     LCD_CS_UNSELECT();
-
     printf("RDID:0x%08x\r\n", (data[3]<<24)|(data[2]<<16)|(data[1]<<8)|(data[0]));
+
+    LCD_CS_SELECT();
+    data[0] = 0x9;
+    LCD_CMD();
+    HAL_SPI_Transmit(&hspi2, data, 1, 0xFFFF);
+    LCD_CMD();
+    HAL_SPI_Receive(&hspi2, &data, 5, 0xFFFF);
+    LCD_CS_UNSELECT();
+    puts("STATUS:");
+    for (uint8_t i = 0; i < 5;++i) {
+      printf("0x%02x ", data[i]);
+    }
+    puts("");
+
+    LCD_CS_SELECT();
+    data[0] = 0xA;
+    LCD_CMD();
+    HAL_SPI_Transmit(&hspi2, data, 1, 0xFFFF);
+    LCD_DAT();
+    HAL_SPI_Receive(&hspi2, &data, 2, 0xFFFF);
+    LCD_CS_UNSELECT();
+    printf("PWR MODE:0x%02x 0x%02x\r\n", data[0], data[1]);
   }
   /* USER CODE END 3 */
 }
@@ -152,82 +188,78 @@ int main(void)
   */
 void SystemClock_Config(void)
 {
-  LL_FLASH_SetLatency(LL_FLASH_LATENCY_4);
-  while(LL_FLASH_GetLatency()!= LL_FLASH_LATENCY_4)
-  {
-  }
-  LL_PWR_ConfigSupply(LL_PWR_LDO_SUPPLY);
-  LL_PWR_SetRegulVoltageScaling(LL_PWR_REGU_VOLTAGE_SCALE0);
-  LL_RCC_HSE_Enable();
+  RCC_OscInitTypeDef RCC_OscInitStruct = {0};
+  RCC_ClkInitTypeDef RCC_ClkInitStruct = {0};
 
-   /* Wait till HSE is ready */
-  while(LL_RCC_HSE_IsReady() != 1)
-  {
+  /** Supply configuration update enable
+  */
+  HAL_PWREx_ConfigSupply(PWR_LDO_SUPPLY);
 
-  }
-  LL_RCC_HSI48_Enable();
+  /** Configure the main internal regulator output voltage
+  */
+  __HAL_PWR_VOLTAGESCALING_CONFIG(PWR_REGULATOR_VOLTAGE_SCALE3);
 
-   /* Wait till HSI48 is ready */
-  while(LL_RCC_HSI48_IsReady() != 1)
-  {
+  while(!__HAL_PWR_GET_FLAG(PWR_FLAG_VOSRDY)) {}
 
-  }
-  LL_RCC_PLL_SetSource(LL_RCC_PLLSOURCE_HSE);
-  LL_RCC_PLL1P_Enable();
-  LL_RCC_PLL1Q_Enable();
-  LL_RCC_PLL1R_Enable();
-  LL_RCC_PLL1_SetVCOInputRange(LL_RCC_PLLINPUTRANGE_4_8);
-  LL_RCC_PLL1_SetVCOOutputRange(LL_RCC_PLLVCORANGE_WIDE);
-  LL_RCC_PLL1_SetM(5);
-  LL_RCC_PLL1_SetN(192);
-  LL_RCC_PLL1_SetP(2);
-  LL_RCC_PLL1_SetQ(2);
-  LL_RCC_PLL1_SetR(2);
-  LL_RCC_PLL1_Enable();
-
-   /* Wait till PLL is ready */
-  while(LL_RCC_PLL1_IsReady() != 1)
-  {
-  }
-
-  LL_RCC_PLL2P_Enable();
-  LL_RCC_PLL2_SetVCOInputRange(LL_RCC_PLLINPUTRANGE_8_16);
-  LL_RCC_PLL2_SetVCOOutputRange(LL_RCC_PLLVCORANGE_WIDE);
-  LL_RCC_PLL2_SetM(2);
-  LL_RCC_PLL2_SetN(24);
-  LL_RCC_PLL2_SetP(2);
-  LL_RCC_PLL2_SetQ(2);
-  LL_RCC_PLL2_SetR(2);
-  LL_RCC_PLL2_Enable();
-
-   /* Wait till PLL is ready */
-  while(LL_RCC_PLL2_IsReady() != 1)
-  {
-  }
-
-   /* Intermediate AHB prescaler 2 when target frequency clock is higher than 80 MHz */
-   LL_RCC_SetAHBPrescaler(LL_RCC_AHB_DIV_2);
-
-  LL_RCC_SetSysClkSource(LL_RCC_SYS_CLKSOURCE_PLL1);
-  LL_RCC_SetSysPrescaler(LL_RCC_SYSCLK_DIV_1);
-  LL_RCC_SetAHBPrescaler(LL_RCC_AHB_DIV_2);
-  LL_RCC_SetAPB1Prescaler(LL_RCC_APB1_DIV_2);
-  LL_RCC_SetAPB2Prescaler(LL_RCC_APB2_DIV_2);
-  LL_RCC_SetAPB3Prescaler(LL_RCC_APB3_DIV_2);
-  LL_RCC_SetAPB4Prescaler(LL_RCC_APB4_DIV_2);
-  LL_SetSystemCoreClock(480000000);
-
-   /* Update the time base */
-  if (HAL_InitTick (TICK_INT_PRIORITY) != HAL_OK)
+  /** Initializes the RCC Oscillators according to the specified parameters
+  * in the RCC_OscInitTypeDef structure.
+  */
+  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI48|RCC_OSCILLATORTYPE_HSI
+                              |RCC_OSCILLATORTYPE_HSE;
+  RCC_OscInitStruct.HSEState = RCC_HSE_ON;
+  RCC_OscInitStruct.HSIState = RCC_HSI_DIV1;
+  RCC_OscInitStruct.HSICalibrationValue = RCC_HSICALIBRATION_DEFAULT;
+  RCC_OscInitStruct.HSI48State = RCC_HSI48_ON;
+  RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
+  RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSE;
+  RCC_OscInitStruct.PLL.PLLM = 5;
+  RCC_OscInitStruct.PLL.PLLN = 192;
+  RCC_OscInitStruct.PLL.PLLP = 2;
+  RCC_OscInitStruct.PLL.PLLQ = 10;
+  RCC_OscInitStruct.PLL.PLLR = 20;
+  RCC_OscInitStruct.PLL.PLLRGE = RCC_PLL1VCIRANGE_2;
+  RCC_OscInitStruct.PLL.PLLVCOSEL = RCC_PLL1VCOWIDE;
+  RCC_OscInitStruct.PLL.PLLFRACN = 0;
+  if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
   {
     Error_Handler();
   }
-  LL_RCC_SetI2CClockSource(LL_RCC_I2C4_CLKSOURCE_PCLK4);
-  LL_RCC_SetSPIClockSource(LL_RCC_SPI123_CLKSOURCE_PLL1Q);
-  LL_RCC_SetSDMMCClockSource(LL_RCC_SDMMC_CLKSOURCE_PLL1Q);
-  LL_RCC_SetUSARTClockSource(LL_RCC_USART234578_CLKSOURCE_PCLK1);
-  LL_RCC_SetADCClockSource(LL_RCC_ADC_CLKSOURCE_PLL2P);
-  LL_RCC_SetUSBClockSource(LL_RCC_USB_CLKSOURCE_HSI48);
+
+  /** Initializes the CPU, AHB and APB buses clocks
+  */
+  RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK|RCC_CLOCKTYPE_SYSCLK
+                              |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2
+                              |RCC_CLOCKTYPE_D3PCLK1|RCC_CLOCKTYPE_D1PCLK1;
+  RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_HSI;
+  RCC_ClkInitStruct.SYSCLKDivider = RCC_SYSCLK_DIV1;
+  RCC_ClkInitStruct.AHBCLKDivider = RCC_HCLK_DIV1;
+  RCC_ClkInitStruct.APB3CLKDivider = RCC_APB3_DIV2;
+  RCC_ClkInitStruct.APB1CLKDivider = RCC_APB1_DIV2;
+  RCC_ClkInitStruct.APB2CLKDivider = RCC_APB2_DIV2;
+  RCC_ClkInitStruct.APB4CLKDivider = RCC_APB4_DIV2;
+
+  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+}
+
+/**
+  * @brief Peripherals Common Clock Configuration
+  * @retval None
+  */
+void PeriphCommonClock_Config(void)
+{
+  RCC_PeriphCLKInitTypeDef PeriphClkInitStruct = {0};
+
+  /** Initializes the peripherals clock
+  */
+  PeriphClkInitStruct.PeriphClockSelection = RCC_PERIPHCLK_CKPER;
+  PeriphClkInitStruct.CkperClockSelection = RCC_CLKPSOURCE_HSI;
+  if (HAL_RCCEx_PeriphCLKConfig(&PeriphClkInitStruct) != HAL_OK)
+  {
+    Error_Handler();
+  }
 }
 
 /* USER CODE BEGIN 4 */
@@ -262,5 +294,3 @@ void assert_failed(uint8_t *file, uint32_t line)
   /* USER CODE END 6 */
 }
 #endif /* USE_FULL_ASSERT */
-
-/************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/

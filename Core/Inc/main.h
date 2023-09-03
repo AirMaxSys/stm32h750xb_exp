@@ -29,18 +29,6 @@ extern "C" {
 
 /* Includes ------------------------------------------------------------------*/
 #include "stm32h7xx_hal.h"
-#include "stm32h7xx_ll_rcc.h"
-#include "stm32h7xx_ll_crs.h"
-#include "stm32h7xx_ll_bus.h"
-#include "stm32h7xx_ll_system.h"
-#include "stm32h7xx_ll_exti.h"
-#include "stm32h7xx_ll_cortex.h"
-#include "stm32h7xx_ll_utils.h"
-#include "stm32h7xx_ll_pwr.h"
-#include "stm32h7xx_ll_dma.h"
-#include "stm32h7xx_hal.h"
-#include "stm32h7xx_ll_usart.h"
-#include "stm32h7xx_ll_gpio.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -70,20 +58,21 @@ void Error_Handler(void);
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/
-#define SD_DETECT_Pin LL_GPIO_PIN_5
+#define SD_DETECT_Pin GPIO_PIN_5
 #define SD_DETECT_GPIO_Port GPIOD
-#define LCD_CS_Pin LL_GPIO_PIN_15
+#define LCD_CS_Pin GPIO_PIN_15
 #define LCD_CS_GPIO_Port GPIOA
-#define LCD_RST_Pin LL_GPIO_PIN_15
+#define LCD_RST_Pin GPIO_PIN_15
 #define LCD_RST_GPIO_Port GPIOH
-#define LED_R_Pin LL_GPIO_PIN_15
+#define LED_R_Pin GPIO_PIN_15
 #define LED_R_GPIO_Port GPIOC
-#define LCD_A0_Pin LL_GPIO_PIN_13
+#define LCD_A0_Pin GPIO_PIN_13
 #define LCD_A0_GPIO_Port GPIOH
-#define LED_B_Pin LL_GPIO_PIN_8
+#define LED_B_Pin GPIO_PIN_8
 #define LED_B_GPIO_Port GPIOI
-#define FLASH_SPI_CS_Pin LL_GPIO_PIN_4
+#define FLASH_SPI_CS_Pin GPIO_PIN_4
 #define FLASH_SPI_CS_GPIO_Port GPIOA
+
 /* USER CODE BEGIN Private defines */
 
 /* USER CODE END Private defines */
@@ -93,5 +82,3 @@ void Error_Handler(void);
 #endif
 
 #endif /* __MAIN_H */
-
-/************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/
