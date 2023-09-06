@@ -45,6 +45,7 @@ bsp/driver/led.c \
 bsp/dirver/dbg_output.c \
 bsp/driver/wireless.c \
 bsp/driver/sdio.c \
+bsp/st7789.c \
 Core/Src/main.c \
 Core/Src/gpio.c \
 Core/Src/adc.c \

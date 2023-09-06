@@ -33,6 +33,7 @@
 #include <string.h>
 #include "led.h"
 #include "dbg_output.h"
+#include "st7789.h"
 //#include "wireless.h"
 
 /* USER CODE END Includes */
@@ -63,7 +64,7 @@
 
 /* USER CODE BEGIN PV */
 
-  uint8_t data[10] = {0x0};
+uint8_t data[10] = {0x0};
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
