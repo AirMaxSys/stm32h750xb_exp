@@ -1,3 +1,12 @@
+/**********************************************************************************
+ * ST7789 displayer board using SPI half-duplex serial bus.
+ *  - SPI bus maximum speed: 70Mhz (single period about 14ns)
+ *  - communication 4-lines interface I: CS CLK SDA A0(D/CX:data or command)
+ *  - other wires: VCC(3.3V) GND RESET(Keep low level longer than 10us) LED(3.3V)
+ *  - RGB/BGR format: 444(12bits) 565(16bits) 666(18bits)
+ *  - display resolution: 240x320
+**********************************************************************************/
+
 #include "st7789.h"
 
 // ST7789 commands definition
@@ -50,7 +59,60 @@
 #define RDID2       0xDB    // Read ID2
 #define RDID3       0xDC    // Read ID3
 
-void st7789_init(void)
-{
 
+extern SPI_HandleTypeDef hspi2;
+
+static void st7789_hw_reset(void)
+{
+    LCD_RST_SELECT();
+    HAL_Delay(1);
+    LCD_RST_UNSELECT();
+}
+
+
+// @brief wirte command with or without parameters
+static void st7789_write_para(uint8_t cmd, uint8_t *para, uint16_t para_size)
+{
+    LCD_CS_SELECT();
+    LCD_CMD();
+    HAL_SPI_Transmit(&hspi2, &cmd, 1, 0xFFFF);
+    LCD_DAT();
+    HAL_SPI_Transmit(&hspi2, para, para_size, 0xFFFF);
+    LCD_CS_UNSELECT();
+}
+
+
+// @brief wirte command with or without parameters
+static void st7789_read_para(uint8_t cmd, uint8_t *para, uint16_t para_size)
+{
+    LCD_CS_SELECT();
+    LCD_CMD();
+    HAL_SPI_Transmit(&hspi2, &cmd, 1, 0xFFFF);
+    LCD_DAT();
+    HAL_SPI_Receive(&hspi2, para, para_size, 0xFFFF);
+    LCD_CS_UNSELECT();
+}
+
+void st7789_setup(void)
+{
+    uint8_t para = 0x0;
+    uint8_t datas[128] = {0x0};
+
+    // Hardware reset first
+    
+
+    datas[0] = 0xF8;
+    st7789_write_para(MADCTL, datas, 1);
+    st7789_read_para(MADCTL, &para, 1);
+    printf("MADCTL:0x%02x\n", para);
+
+    st7789_read_para(RDID1, &para, 1);
+    printf("RDID1:0x%02x\n", para);
+    st7789_read_para(RDID2, &para, 1);
+    printf("RDID2:0x%02x\n", para);
+    st7789_read_para(RDID3, &para, 1);
+    printf("RDID3:0x%02x\n", para);
+
+    st7789_read_para(RDDID, datas, 4);
+    printf("RDID:0x%02x 0x%02x 0x%02x\n", datas[1], datas[2], datas[3]);
 }

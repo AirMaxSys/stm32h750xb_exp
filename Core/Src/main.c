@@ -50,11 +50,6 @@
 /* Private macro -------------------------------------------------------------*/
 /* USER CODE BEGIN PM */
 
-#define LCD_CS_UNSELECT()     (LCD_CS_GPIO_Port->BSRR = (LCD_CS_Pin))
-#define LCD_CS_SELECT()       (LCD_CS_GPIO_Port->BSRR = (LCD_CS_Pin << 16))
-#define LCD_DAT()             (LCD_A0_GPIO_Port->BSRR = (LCD_A0_Pin))
-#define LCD_CMD()             (LCD_A0_GPIO_Port->BSRR = (LCD_A0_Pin << 16))
-
 #define FLASH_CS_UNSELECT()   (FLASH_SPI_CS_GPIO_Port->BSRR = (FLASH_SPI_CS_Pin))
 #define FLASH_CS_SELECT()     (FLASH_SPI_CS_GPIO_Port->BSRR = (FLASH_SPI_CS_Pin << 16))
 
@@ -115,7 +110,10 @@ int main(void)
   MX_SPI1_Init();
   /* USER CODE BEGIN 2 */
   // wlan_sdio_enum();
-
+    
+    LCD_RST_SELECT();
+    HAL_Delay(1);
+    LCD_RST_UNSELECT();
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -145,36 +143,7 @@ int main(void)
     printf("ID:0x%02x 0x%02x 0x%02x\r\n", data[0], data[1], data[2]);
 #endif
 
-    LCD_CS_SELECT();
-    data[0] = 0x4;
-    LCD_CMD();
-    HAL_SPI_Transmit(&hspi2, data, 1, 0xFF);
-    LCD_CMD();
-    HAL_SPI_Receive(&hspi2, data, 4, 0xFF);
-    LCD_CS_UNSELECT();
-    printf("RDID:0x%08x\r\n", (data[3]<<24)|(data[2]<<16)|(data[1]<<8)|(data[0]));
-
-    LCD_CS_SELECT();
-    data[0] = 0x9;
-    LCD_CMD();
-    HAL_SPI_Transmit(&hspi2, data, 1, 0xFFFF);
-    LCD_CMD();
-    HAL_SPI_Receive(&hspi2, data, 5, 0xFFFF);
-    LCD_CS_UNSELECT();
-    puts("STATUS:");
-    for (uint8_t i = 0; i < 5;++i) {
-      printf("0x%02x ", data[i]);
-    }
-    puts("");
-
-    LCD_CS_SELECT();
-    data[0] = 0xA;
-    LCD_CMD();
-    HAL_SPI_Transmit(&hspi2, data, 1, 0xFFFF);
-    LCD_DAT();
-    HAL_SPI_Receive(&hspi2, data, 2, 0xFFFF);
-    LCD_CS_UNSELECT();
-    printf("PWR MODE:0x%02x 0x%02x\r\n", data[0], data[1]);
+    st7789_setup();
   }
   /* USER CODE END 3 */
 }
