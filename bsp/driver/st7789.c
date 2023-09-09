@@ -58,6 +58,18 @@
 #define RDID1       0xDA    // Read ID1
 #define RDID2       0xDB    // Read ID2
 #define RDID3       0xDC    // Read ID3
+#define RAMCTRL     0xB0    // RAM control
+#define RGBCTRL     0xB1    // RGB control
+#define PORCTRL     0xB2    // Porch control
+#define FRCTRL1     0xB3    // Frame rate control 1
+#define PARCTRL     0xB5    // Partial control
+#define GCTRL       0xB7    // Gate control
+#define GTADJ       0xB8    // Gate on timing adjustment
+#define DGMEN       0xBA    // Digital gamma enable
+#define VCOMS       0xBB    // VCOM setting
+#define POWSAVE     0xBC    // Power saving mode
+
+#define IDSET       0xC1    // ID conde setting
 
 
 extern SPI_HandleTypeDef hspi2;
@@ -69,6 +81,13 @@ static void st7789_hw_reset(void)
     LCD_RST_UNSELECT();
 }
 
+static void st7789_write_cmd(uint8_t cmd)
+{
+    LCD_CS_SELECT();
+    LCD_CMD();
+    HAL_SPI_Transmit(&hspi2, &cmd, 1, 0xFFFF);
+    LCD_CS_UNSELECT();
+}
 
 // @brief wirte command with or without parameters
 static void st7789_write_para(uint8_t cmd, uint8_t *para, uint16_t para_size)
@@ -82,7 +101,7 @@ static void st7789_write_para(uint8_t cmd, uint8_t *para, uint16_t para_size)
 }
 
 
-// @brief wirte command with or without parameters
+// @brief read command with or without parameters
 static void st7789_read_para(uint8_t cmd, uint8_t *para, uint16_t para_size)
 {
     LCD_CS_SELECT();
@@ -99,20 +118,45 @@ void st7789_setup(void)
     uint8_t datas[128] = {0x0};
 
     // Hardware reset first
+    // software reset
+    // st7789_write_cmd(SWRESET);
     
 
-    datas[0] = 0xF8;
+    datas[0] = 0x74;
     st7789_write_para(MADCTL, datas, 1);
-    st7789_read_para(MADCTL, &para, 1);
-    printf("MADCTL:0x%02x\n", para);
 
-    st7789_read_para(RDID1, &para, 1);
-    printf("RDID1:0x%02x\n", para);
-    st7789_read_para(RDID2, &para, 1);
-    printf("RDID2:0x%02x\n", para);
-    st7789_read_para(RDID3, &para, 1);
-    printf("RDID3:0x%02x\n", para);
+    datas[0] = 0x85;
+    datas[1] = 0x85;
+    datas[2] = 0x5A;
+    st7789_write_para(IDSET, datas, 3);
 
-    st7789_read_para(RDDID, datas, 4);
-    printf("RDID:0x%02x 0x%02x 0x%02x\n", datas[1], datas[2], datas[3]);
+    st7789_read_para(RDID1, datas, 2);
+    printf("RDID1:0x%02x 0x%02x\n", datas[0], datas[1]);
+    st7789_read_para(RDID2, datas, 2);
+    printf("RDID2:0x%02x 0x%02x\n", datas[0], datas[1]);
+    st7789_read_para(RDID2, datas, 2);
+    printf("RDID3:0x%02x 0x%02x\n", datas[0], datas[1]);
+
+    st7789_read_para(RDDID, datas, 3);
+    printf("RDID:0x%02x 0x%02x 0x%02x\n", datas[0], datas[1], datas[2]);
+
+    st7789_read_para(RDDST, datas, 4);
+    printf("RDDST:0x%02x 0x%02x 0x%02x 0x%02x\n", datas[0], datas[1], datas[2], datas[3]);
+
+    st7789_read_para(RDDPM, datas, 2);
+    printf("RDDPM:0x%02x 0x%02x\n", datas[0], datas[1]);
+
+    st7789_read_para(RDDMADCTL, datas, 2);
+    printf("RDDMADCTL:0x%02x 0x%02x\n", datas[0], datas[1]);
+
+    st7789_read_para(COLMOD, datas, 2);
+    printf("COLMOD:0x%02x 0x%02x\n", datas[0], datas[1]);
+    para = 0x63;
+    st7789_write_para(COLMOD, &para, 1);
+
+    st7789_read_para(RDDCOLMOD, datas, 2);
+    printf("RDDCOLMOD:0x%02x 0x%02x\n", datas[0], datas[1]);
+
+    st7789_read_para(RDDIM, datas, 2);
+    printf("RDDIM:0x%02x 0x%02x\n", datas[0], datas[1]);
 }
