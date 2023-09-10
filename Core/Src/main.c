@@ -114,6 +114,8 @@ int main(void)
     LCD_RST_SELECT();
     HAL_Delay(1);
     LCD_RST_UNSELECT();
+
+    st7789_setup();
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -143,7 +145,7 @@ int main(void)
     printf("ID:0x%02x 0x%02x 0x%02x\r\n", data[0], data[1], data[2]);
 #endif
 
-    st7789_setup();
+    st7789_draw();
   }
   /* USER CODE END 3 */
 }

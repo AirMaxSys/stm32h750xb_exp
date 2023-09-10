@@ -31,7 +31,7 @@
 #define DISPON      0x29    // Display on
 #define CASET       0x2A    // Column address set (When write LCD RAM need to configure X boundary of drawing windows first)
 #define RASET       0x2B    // Row address set
-#define RAWWR       0x2C    // Memory write
+#define RAMWR       0x2C    // Memory write
 #define RAMRD       0x2E    // Memory read
 #define PTLAR       0x30    // Parial Area
 #define VSCRDEF     0x33    // Vertical scrolling definition
@@ -89,6 +89,14 @@ static void st7789_write_cmd(uint8_t cmd)
     LCD_CS_UNSELECT();
 }
 
+static void st7789_write_data(uint8_t *data, uint16_t data_size)
+{
+    LCD_CS_SELECT();
+    LCD_DAT();
+    HAL_SPI_Transmit(&hspi2, data, data_size, 0xFFFF);
+    LCD_CS_UNSELECT();
+}
+
 // @brief wirte command with or without parameters
 static void st7789_write_para(uint8_t cmd, uint8_t *para, uint16_t para_size)
 {
@@ -114,14 +122,11 @@ static void st7789_read_para(uint8_t cmd, uint8_t *para, uint16_t para_size)
 
 void st7789_setup(void)
 {
-    uint8_t para = 0x0;
-    uint8_t datas[128] = {0x0};
-
     // Hardware reset first
     // software reset
     // st7789_write_cmd(SWRESET);
     
-
+#if 0
     datas[0] = 0x74;
     st7789_write_para(MADCTL, datas, 1);
 
@@ -159,4 +164,63 @@ void st7789_setup(void)
 
     st7789_read_para(RDDIM, datas, 2);
     printf("RDDIM:0x%02x 0x%02x\n", datas[0], datas[1]);
+#endif
+
+    st7789_hw_reset();
+
+    st7789_write_cmd(INVON);
+
+    st7789_write_cmd(SLPOUT);
+    HAL_Delay(100);
+    LCD_PWR_ON();
+    st7789_write_cmd(DISPON);
+}
+
+void st7789_draw(void)
+{
+    uint8_t para = 0x0;
+    uint8_t datas[128] = {0x0};
+
+    // Set drawing window
+    datas[0] = 0x0;
+    datas[1] = 0x0;
+    datas[2] = 0x0;
+    datas[3] = 100;
+    // st7789_write_para(CASET, datas, 4);
+    st7789_write_cmd(CASET);
+    for (uint8_t i = 0; i < 4; ++i)
+        st7789_write_data(datas, 4);
+    datas[0] = 0x0;
+    datas[1] = 0x0;
+    datas[2] = 0x0;
+    datas[3] = 200;
+    // st7789_write_para(RASET, datas, 4);
+    st7789_write_cmd(RASET);
+    for (uint8_t i = 0; i < 4; ++i)
+        st7789_write_data(datas, 4);
+
+    // Set RGB666
+    para = 0x65;
+    st7789_write_cmd(COLMOD);
+    st7789_write_data(&para, 1);
+
+    // Trasnfer
+    uint8_t pixels[100*200*24] = {0x0};
+
+    for (uint32_t i = 0; i < 100*200; ++i)
+        pixels[i*3+2] = 0xFC;
+
+    uint32_t len = 100*200*24;
+
+    st7789_write_cmd(RAMWR);
+
+    while (len > 0) {
+        if (len >= 0xFFFF) {
+            st7789_write_data(pixels, 0xFFFF);
+            len -= 0xFFFF;
+        } else {
+            st7789_write_data(pixels, len);
+            len = 0;
+        }
+    }
 }
