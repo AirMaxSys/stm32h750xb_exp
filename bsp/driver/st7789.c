@@ -4,7 +4,7 @@
  *  - communication 4-lines interface I: CS CLK SDA A0(D/CX:data or command)
  *  - other wires: VCC(3.3V) GND RESET(Keep low level longer than 10us) LED(3.3V)
  *  - RGB/BGR format: 444(12bits) 565(16bits) 666(18bits)
- *  - display resolution: 240x320
+ *  - display resolution: 240x320 tft resolution 128*160
 **********************************************************************************/
 
 #include "st7789.h"
@@ -83,8 +83,8 @@ static void st7789_hw_reset(void)
 
 static void st7789_write_cmd(uint8_t cmd)
 {
-    LCD_CS_SELECT();
     LCD_CMD();
+    LCD_CS_SELECT();
     HAL_SPI_Transmit(&hspi2, &cmd, 1, 0xFFFF);
     LCD_CS_UNSELECT();
 }
@@ -122,11 +122,13 @@ static void st7789_read_para(uint8_t cmd, uint8_t *para, uint16_t para_size)
 
 void st7789_setup(void)
 {
+    uint8_t para = 0x0;
+    uint8_t datas[128] = {0x0};
     // Hardware reset first
     // software reset
-    // st7789_write_cmd(SWRESET);
+    st7789_write_cmd(SWRESET);
     
-#if 0
+#if 1
     datas[0] = 0x74;
     st7789_write_para(MADCTL, datas, 1);
 
@@ -142,11 +144,16 @@ void st7789_setup(void)
     st7789_read_para(RDID2, datas, 2);
     printf("RDID3:0x%02x 0x%02x\n", datas[0], datas[1]);
 
-    st7789_read_para(RDDID, datas, 3);
-    printf("RDID:0x%02x 0x%02x 0x%02x\n", datas[0], datas[1], datas[2]);
+    st7789_read_para(RDDID, datas, 4);
+    // st7789_write_cmd(RDDID);
+    // LCD_DAT();
+    // LCD_CS_SELECT();
+    // HAL_SPI_Receive(&hspi2, datas, 4, 0xFFFF);
+    // LCD_CS_UNSELECT();
+    printf("RDID:0x%02x 0x%02x 0x%02x 0x%02x\n", datas[0], datas[1], datas[2], datas[3]);
 
-    st7789_read_para(RDDST, datas, 4);
-    printf("RDDST:0x%02x 0x%02x 0x%02x 0x%02x\n", datas[0], datas[1], datas[2], datas[3]);
+    // st7789_read_para(RDDST, datas, 4);
+    // printf("RDDST:0x%02x 0x%02x 0x%02x 0x%02x\n", datas[0], datas[1], datas[2], datas[3]);
 
     st7789_read_para(RDDPM, datas, 2);
     printf("RDDPM:0x%02x 0x%02x\n", datas[0], datas[1]);
@@ -167,25 +174,19 @@ void st7789_setup(void)
 #endif
 
     st7789_hw_reset();
+    HAL_Delay(100);
 
     st7789_write_cmd(INVON);
 
     st7789_write_cmd(SLPOUT);
-    HAL_Delay(100);
     LCD_PWR_ON();
     st7789_write_cmd(DISPON);
-}
-
-void st7789_draw(void)
-{
-    uint8_t para = 0x0;
-    uint8_t datas[128] = {0x0};
 
     // Set drawing window
     datas[0] = 0x0;
     datas[1] = 0x0;
     datas[2] = 0x0;
-    datas[3] = 100;
+    datas[3] = 128;
     // st7789_write_para(CASET, datas, 4);
     st7789_write_cmd(CASET);
     for (uint8_t i = 0; i < 4; ++i)
@@ -193,7 +194,7 @@ void st7789_draw(void)
     datas[0] = 0x0;
     datas[1] = 0x0;
     datas[2] = 0x0;
-    datas[3] = 200;
+    datas[3] = 160;
     // st7789_write_para(RASET, datas, 4);
     st7789_write_cmd(RASET);
     for (uint8_t i = 0; i < 4; ++i)
@@ -204,13 +205,48 @@ void st7789_draw(void)
     st7789_write_cmd(COLMOD);
     st7789_write_data(&para, 1);
 
+    st7789_read_para(RDDCOLMOD, datas, 2);
+    printf("RDDCOLMOD:0x%02x 0x%02x\n", datas[0], datas[1]);
+
+}
+
+void st7789_draw(void)
+{
+    uint8_t para = 0x0;
+    uint8_t datas[128] = {0x0};
+    static uint8_t loop = 0;
+#if 1
     // Trasnfer
-    uint8_t pixels[100*200*24] = {0x0};
+    uint8_t pixels[128*160*16] = {0x0};
+    uint32_t len = 128*160*16;
 
-    for (uint32_t i = 0; i < 100*200; ++i)
-        pixels[i*3+2] = 0xFC;
+    #if 0
 
-    uint32_t len = 100*200*24;
+    for (uint32_t i = 0; i < len>>1; ++i) {
+        if (0 == loop) {
+            pixels[2*i] = 0x1F;
+            pixels[2*i+1] = 0x0;
+        } else if (1 == loop) {
+            pixels[2*i] = 0xE0;
+            pixels[2*i+1] = 0x7;
+        } else {
+            pixels[2*i] = 0x0;
+            pixels[2*i+1] = 0xF8;
+        }
+    }
+    #else
+    if (0 == loop)
+        memset(pixels, 0x1F, len);
+    else if (1 == loop)
+        memset(pixels, 0xF0, len);
+    else
+        memset(pixels, 0x0A, len);
+    #endif
+    printf("loop:%d\n", loop);
+    if (!(++loop % 3)) loop = 0;
+
+    for (uint8_t i = 0; i < 10; ++i)
+        printf("%d: 0x%02x 0x%02x\n", len-i, pixels[len - 2*i - 1], pixels[len - 2*i-2]);
 
     st7789_write_cmd(RAMWR);
 
@@ -223,4 +259,5 @@ void st7789_draw(void)
             len = 0;
         }
     }
+#endif
 }

@@ -144,8 +144,11 @@ int main(void)
     FLASH_CS_UNSELECT();
     printf("ID:0x%02x 0x%02x 0x%02x\r\n", data[0], data[1], data[2]);
 #endif
-
+    // st7789_setup();
     st7789_draw();
+
+    printf("sys clock freq:%ld\n", HAL_RCC_GetSysClockFreq());
+    printf("hclk clock freq:%ld\n", HAL_RCC_GetHCLKFreq());
   }
   /* USER CODE END 3 */
 }
