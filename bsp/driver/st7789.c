@@ -210,16 +210,38 @@ void st7789_setup(void)
 
 }
 
+uint8_t pixels[128*160*4] = {0x0};
+
+void spi_tans_fast(uint8_t *datas, uint32_t len)
+{
+    for (uint32_t i = 0; i < len; ++i) {
+	// SPI2->CFG1 = SPI_BAUDRATEPRESCALER_8 | 7;
+    // SPI2->CR1 = SPI_CR1_SSI;
+    SPI2->CR2 = 1;
+    // SPI2->CR1 = SPI_CR1_SPE | SPI_CR1_SSI;
+    SPI2->CR1 = SPI_CR1_SPE | SPI_CR1_SSI | SPI_CR1_CSTART;
+
+        while ((SPI2->SR & SPI_FLAG_TXE) == 0);
+
+        *((__IO uint8_t *)&SPI2->TXDR) = datas[i];
+        
+        while ((SPI2->SR & SPI_SR_TXC) == 0);
+        
+        SPI2->IFCR = SPI_IFCR_EOTC | SPI_IFCR_TXTFC;
+	SPI2->CR1 &= ~(SPI_CR1_SPE);
+    }
+
+}
+
 void st7789_draw(void)
 {
     uint8_t para = 0x0;
     uint8_t datas[128] = {0x0};
     static uint8_t loop = 0;
-#if 1
-    // Trasnfer
-    uint8_t pixels[128*160*16] = {0x0};
     uint32_t len = 128*160*16;
 
+#if 1
+    // Trasnfer
     #if 0
 
     for (uint32_t i = 0; i < len>>1; ++i) {
@@ -236,28 +258,33 @@ void st7789_draw(void)
     }
     #else
     if (0 == loop)
-        memset(pixels, 0x1F, len);
+        memset(pixels, 0x1F, len>>2);
     else if (1 == loop)
-        memset(pixels, 0xF0, len);
+        memset(pixels, 0xF0, len>>2);
     else
-        memset(pixels, 0x0A, len);
+        memset(pixels, 0x0A, len>>2);
     #endif
     printf("loop:%d\n", loop);
     if (!(++loop % 3)) loop = 0;
 
-    for (uint8_t i = 0; i < 10; ++i)
-        printf("%d: 0x%02x 0x%02x\n", len-i, pixels[len - 2*i - 1], pixels[len - 2*i-2]);
+    // for (uint8_t i = 0; i < 10; ++i)
+    //     printf("%d: 0x%02x 0x%02x\n", len-i, pixels[len - 2*i - 1], pixels[len - 2*i-2]);
 
     st7789_write_cmd(RAMWR);
 
-    while (len > 0) {
-        if (len >= 0xFFFF) {
-            st7789_write_data(pixels, 0xFFFF);
-            len -= 0xFFFF;
-        } else {
-            st7789_write_data(pixels, len);
-            len = 0;
-        }
-    }
+    LCD_CS_SELECT();
+    LCD_DAT();
+
+    // while (len > 0) {
+    //     if (len >= 0xFFFF) {
+    //         HAL_SPI_Transmit(&hspi2, pixels, 0xFFFF, 0xFFFF);
+    //         len -= 0xFFFF;
+    //     } else {
+    //         HAL_SPI_Transmit(&hspi2, pixels, len, 0xFFFF);
+    //         len = 0;
+    //     }
+    // }
+    spi_tans_fast(pixels, len);
+    LCD_CS_UNSELECT();
 #endif
 }
