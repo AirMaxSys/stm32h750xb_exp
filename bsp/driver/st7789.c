@@ -212,25 +212,52 @@ void st7789_setup(void)
 
 uint8_t pixels[128*160*4] = {0x0};
 
-void spi_tans_fast(uint8_t *datas, uint32_t len)
+void spi_xfer_polling(uint8_t *datas, uint32_t len)
 {
-    for (uint32_t i = 0; i < len; ++i) {
-	// SPI2->CFG1 = SPI_BAUDRATEPRESCALER_8 | 7;
-    // SPI2->CR1 = SPI_CR1_SSI;
-    SPI2->CR2 = 1;
-    // SPI2->CR1 = SPI_CR1_SPE | SPI_CR1_SSI;
-    SPI2->CR1 = SPI_CR1_SPE | SPI_CR1_SSI | SPI_CR1_CSTART;
+    uint16_t xfer_max_size = 0xFFFF;
 
-        while ((SPI2->SR & SPI_FLAG_TXE) == 0);
-
-        *((__IO uint8_t *)&SPI2->TXDR) = datas[i];
-        
-        while ((SPI2->SR & SPI_SR_TXC) == 0);
-        
-        SPI2->IFCR = SPI_IFCR_EOTC | SPI_IFCR_TXTFC;
-	SPI2->CR1 &= ~(SPI_CR1_SPE);
+    if (len <= xfer_max_size) {
+        xfer_max_size = len;
+    } else {
+        if (len - xfer_max_size >= 0xFFFF)
+            SPI2->CR2 |= (0xFFFFFFFF);
+        else
+            SPI2->CR2 |= (((len-xfer_max_size) << 16)|xfer_max_size);
     }
 
+    // setup SPI is transmitter
+    SPI2->CR1 |= SPI_CR1_HDDIR;
+    // setup SPI transfer size and autoload size
+    // enable SPI
+    SPI2->CR1 |= SPI_CR1_SPE;
+    // start SPI master transfer
+    SPI2->CR1 |= SPI_CR1_CSTART;
+    printf("len:0x%08x xfer_max_szie:0x%08x CR2:0x%08x\n", len, xfer_max_size, *((volatile uint32_t*)&SPI2->CR2));
+    while (len > 0) {
+        // wirte data to Tx register
+        for (uint16_t i = 0; i < xfer_max_size; ++i) {
+            while ((SPI2->SR & SPI_FLAG_TXP) == 0);
+            *((volatile uint8_t *)&SPI2->TXDR) = *(datas + i);
+        }
+        len -= xfer_max_size;
+        datas += xfer_max_size;
+        if (len > 0xFFFF)
+            xfer_max_size = 0xFFFF;
+        else
+            xfer_max_size = len;
+        printf("len:0x%08x xfer_max_szie:0x%08x CR2:0x%08x\n", len, xfer_max_size, *((volatile uint32_t*)&SPI2->CR2));
+        printf("SR:0x%08x\n", *((volatile uint32_t*)&SPI2->SR));
+        // Wait transfer done
+        while ((SPI2->SR & SPI_SR_EOT) == RESET);
+        // checking if need to setup transfer autoload
+        // number to TSER[15:0] in CR2
+        if (len - xfer_max_size >= 0xFFFF)
+            SPI2->CR2 |= (0xFFFF0000);
+        else
+            SPI2->CR2 |= (((len-xfer_max_size) << 16));
+    }
+    // Disable SPI transfer
+	SPI2->CR1 &= ~SPI_CR1_SPE;
 }
 
 void st7789_draw(void)
@@ -284,7 +311,7 @@ void st7789_draw(void)
     //         len = 0;
     //     }
     // }
-    spi_tans_fast(pixels, len);
+    spi_xfer_polling(pixels, 0xFFF);
     LCD_CS_UNSELECT();
 #endif
 }
