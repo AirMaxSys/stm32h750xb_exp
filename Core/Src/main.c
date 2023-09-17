@@ -117,12 +117,6 @@ int main(void)
 
     st7789_setup();
 
-    uint32_t t1 = HAL_GetTick();
-    st7789_draw();
-    printf("fps:%ld\n", (uint32_t)(1000/(HAL_GetTick() - t1)));
-
-    printf("sys clock freq:%ld\n", HAL_RCC_GetSysClockFreq());
-    printf("hclk clock freq:%ld\n", HAL_RCC_GetHCLKFreq());
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -132,7 +126,7 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-    // led_blink(LED_COLOR_RED, 500);
+    led_blink(LED_COLOR_RED, 500);
 #if 0
     FLASH_CS_SELECT();
     data[0] = 0x90;
@@ -151,24 +145,11 @@ int main(void)
     FLASH_CS_UNSELECT();
     printf("ID:0x%02x 0x%02x 0x%02x\r\n", data[0], data[1], data[2]);
 
+#endif
     // st7789_setup();
     uint32_t t1 = HAL_GetTick();
     st7789_draw();
     printf("fps:%ld\n", (uint32_t)(1000/(HAL_GetTick() - t1)));
-
-    printf("sys clock freq:%ld\n", HAL_RCC_GetSysClockFreq());
-    printf("hclk clock freq:%ld\n", HAL_RCC_GetHCLKFreq());
-
-    [Befor] CR2:0x0000ffff
-    CR1: 0x00001a01, SR:0xffff0002
-    [After] CR2:0x0000ffff
-    CR1: 0x00001801, SR:0x0000101a
-
-    CR1: 0x00001a01, SR:0xffff0002
-    [Befor] len:0x00010000 xfer:0x0000ffff CR2:0x0001ffff
-    [After] len:0x00000001 xfer:0x00000001 CR2:0x0001ffff
-    SR:0xfffd0012
-#endif
   }
   /* USER CODE END 3 */
 }
