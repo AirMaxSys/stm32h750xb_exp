@@ -884,6 +884,9 @@ HAL_StatusTypeDef HAL_SPI_Transmit(SPI_HandleTypeDef *hspi, const uint8_t *pData
     SET_BIT(hspi->Instance->CR1, SPI_CR1_CSTART);
   }
 
+  printf("[Befor] CR2:0x%08lx\n", *((volatile uint32_t *)&SPI2->CR2));
+  printf("CR1: 0x%08lx, SR:0x%08lx\n", *((volatile uint32_t *)&SPI2->CR1), *((volatile uint32_t *)&SPI2->SR));
+
   /* Transmit data in 32 Bit mode */
   if (hspi->Init.DataSize > SPI_DATASIZE_16BIT)
   {
@@ -1014,6 +1017,9 @@ HAL_StatusTypeDef HAL_SPI_Transmit(SPI_HandleTypeDef *hspi, const uint8_t *pData
   {
     SET_BIT(hspi->ErrorCode, HAL_SPI_ERROR_FLAG);
   }
+
+  printf("[After] CR2:0x%08lx\n", *((volatile uint32_t *)&SPI2->CR2));
+  printf("CR1: 0x%08lx, SR:0x%08lx\n", *((volatile uint32_t *)&SPI2->CR1), *((volatile uint32_t *)&SPI2->SR));
 
   /* Call standard close procedure with error check */
   SPI_CloseTransfer(hspi);

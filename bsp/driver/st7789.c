@@ -214,48 +214,62 @@ uint8_t pixels[128*160*4] = {0x0};
 
 void spi_xfer_polling(uint8_t *datas, uint32_t len)
 {
-    uint16_t xfer_max_size = 0xFFFF;
-
-    if (len <= xfer_max_size) {
-        xfer_max_size = len;
-    } else {
-        if (len - xfer_max_size >= 0xFFFF)
-            SPI2->CR2 |= (0xFFFFFFFF);
-        else
-            SPI2->CR2 |= (((len-xfer_max_size) << 16)|xfer_max_size);
-    }
+    uint16_t xfer_len = 0xFFFF;
 
     // setup SPI is transmitter
     SPI2->CR1 |= SPI_CR1_HDDIR;
-    // setup SPI transfer size and autoload size
+
+    // setup SPI transfer size(TSIZE) and autoload size(TSER)
+    if (len <= xfer_len) {
+        xfer_len = len;
+        MODIFY_REG(SPI2->CR2, SPI_CR2_TSIZE, xfer_len);
+    } else {
+        if (len - xfer_len >= 0xFFFF)
+            MODIFY_REG(SPI2->CR2, SPI_CR2_TSIZE, 0xFFFF);
+        else
+            MODIFY_REG(SPI2->CR2, SPI_CR2_TSIZE, len - xfer_len);
+    }
+
     // enable SPI
     SPI2->CR1 |= SPI_CR1_SPE;
-    // start SPI master transfer
-    SPI2->CR1 |= SPI_CR1_CSTART;
-    printf("len:0x%08x xfer_max_szie:0x%08x CR2:0x%08x\n", len, xfer_max_size, *((volatile uint32_t*)&SPI2->CR2));
+
     while (len > 0) {
+        // start SPI master transfer
+        SPI2->CR1 |= SPI_CR1_CSTART;
+
+        printf("CR1: 0x%08lx, SR:0x%08lx\n",*((volatile uint32_t*)&SPI2->CR1), *((volatile uint32_t*)&SPI2->SR));
+
+        printf("[Befor] len:0x%08lx xfer:0x%08x CR2:0x%08lx\n", len, xfer_len, *((volatile uint32_t*)&SPI2->CR2));
+
         // wirte data to Tx register
-        for (uint16_t i = 0; i < xfer_max_size; ++i) {
-            while ((SPI2->SR & SPI_FLAG_TXP) == 0);
-            *((volatile uint8_t *)&SPI2->TXDR) = *(datas + i);
+        for (uint16_t i = 0; i < xfer_len; ++i) {
+            printf("count:%d\n", i);
+            while ((SPI2->SR & SPI_FLAG_TXP) == RESET);
+            *((__IO uint8_t *)&SPI2->TXDR) = *((const uint8_t *)(datas + i));
         }
-        len -= xfer_max_size;
-        datas += xfer_max_size;
-        if (len > 0xFFFF)
-            xfer_max_size = 0xFFFF;
-        else
-            xfer_max_size = len;
-        printf("len:0x%08x xfer_max_szie:0x%08x CR2:0x%08x\n", len, xfer_max_size, *((volatile uint32_t*)&SPI2->CR2));
-        printf("SR:0x%08x\n", *((volatile uint32_t*)&SPI2->SR));
         // Wait transfer done
         while ((SPI2->SR & SPI_SR_EOT) == RESET);
+        SPI2->IFCR |= (SPI_IFCR_TXTFC | SPI_IFCR_EOTC);
+
+        // change size
+        len -= xfer_len;
+        datas += xfer_len;
+        if (len >= 0xFFFF)
+            xfer_len = 0xFFFF;
+        else
+            xfer_len = len;
+
+        printf("[After] len:0x%08lx xfer:0x%08x CR2:0x%08lx\n", len, xfer_len, *((volatile uint32_t*)&SPI2->CR2));
+        printf("SR:0x%08lx\n", *((volatile uint32_t*)&SPI2->SR));
+
         // checking if need to setup transfer autoload
         // number to TSER[15:0] in CR2
-        if (len - xfer_max_size >= 0xFFFF)
-            SPI2->CR2 |= (0xFFFF0000);
+        if (len - xfer_len >= 0xFFFF)
+            MODIFY_REG(SPI2->CR2, SPI_CR2_TSER, 0xFFFF);
         else
-            SPI2->CR2 |= (((len-xfer_max_size) << 16));
+            MODIFY_REG(SPI2->CR2, SPI_CR2_TSER, len - xfer_len);
     }
+
     // Disable SPI transfer
 	SPI2->CR1 &= ~SPI_CR1_SPE;
 }
@@ -304,14 +318,14 @@ void st7789_draw(void)
 
     // while (len > 0) {
     //     if (len >= 0xFFFF) {
-    //         HAL_SPI_Transmit(&hspi2, pixels, 0xFFFF, 0xFFFF);
+            // HAL_SPI_Transmit(&hspi2, pixels, 0xFFFF, 0xFFFF);
     //         len -= 0xFFFF;
     //     } else {
     //         HAL_SPI_Transmit(&hspi2, pixels, len, 0xFFFF);
     //         len = 0;
     //     }
     // }
-    spi_xfer_polling(pixels, 0xFFF);
+    spi_xfer_polling(pixels, len);
     LCD_CS_UNSELECT();
 #endif
 }
