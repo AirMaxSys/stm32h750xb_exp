@@ -60,14 +60,14 @@ void Error_Handler(void);
 /* Private defines -----------------------------------------------------------*/
 #define SD_DETECT_Pin GPIO_PIN_5
 #define SD_DETECT_GPIO_Port GPIOD
-#define LCD_PWR_Pin GPIO_PIN_9
-#define LCD_PWR_GPIO_Port GPIOA
 #define LCD_CS_Pin GPIO_PIN_15
 #define LCD_CS_GPIO_Port GPIOA
 #define LCD_RST_Pin GPIO_PIN_15
 #define LCD_RST_GPIO_Port GPIOH
 #define LED_R_Pin GPIO_PIN_15
 #define LED_R_GPIO_Port GPIOC
+#define LCD_PWR_Pin GPIO_PIN_9
+#define LCD_PWR_GPIO_Port GPIOA
 #define LCD_A0_Pin GPIO_PIN_13
 #define LCD_A0_GPIO_Port GPIOH
 #define LED_B_Pin GPIO_PIN_8
