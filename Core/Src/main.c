@@ -153,7 +153,7 @@ int main(void)
     // st7789_setup();
     uint32_t t1 = HAL_GetTick();
     st7789_draw();
-    printf("fps:%ld\n", (uint32_t)(1000/(HAL_GetTick() - t1)));
+    printf("T:%ld\n fps:%ld\n", (HAL_GetTick() - t1), (uint32_t)(1000/(HAL_GetTick() - t1)));
   }
   /* USER CODE END 3 */
 }

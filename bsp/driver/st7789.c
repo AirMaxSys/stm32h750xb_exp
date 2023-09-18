@@ -210,8 +210,6 @@ void st7789_setup(void)
 
 }
 
-uint8_t pixels[128*160*4] = {0x0};
-
 void spi_xfer_polling(uint8_t *datas, uint32_t len)
 {
     // setup SPI is transmitter
@@ -227,29 +225,37 @@ void spi_xfer_polling(uint8_t *datas, uint32_t len)
     SPI2->CR1 |= SPI_CR1_SPE;
     
     while (len > 0) {
-        uint16_t tsize = 0xFFFF;
-
-        // setup SPI transfer size(TSIZE) and autoload size(TSER)
-        if (len < 0xFFFF)
-            tsize = len;
-
-        // wirte data to Tx register TSIZE
-        SPI2->CR2 = tsize;
-
         // start SPI master transfer
         SPI2->CR1 |= SPI_CR1_CSTART;
 
-        for (uint16_t i = 0; i < tsize; ++i) {
-            while ((SPI2->SR & SPI_FLAG_TXP) == RESET);
-            *((__IO uint8_t *)&SPI2->TXDR) = *((const uint8_t *)(datas + i));
+        if (len < 0xFFFF) {
+            // wirte data size to Tx register TSIZE
+            SPI2->CR2 = len;
+
+            // start transfer spi data
+            for (uint16_t i = 0; i < len; ++i) {
+                while ((SPI2->SR & SPI_FLAG_TXP) == RESET)
+                    ;
+                *((__IO uint8_t *)&SPI2->TXDR) = *((const uint8_t *)(datas + i));
+            }
+
+            // change parameter value
+            len = 0;
+        } else {
+            SPI2->CR2 = 0xFFFF;
+
+            for (uint16_t i = 0; i < 0xFFFF; ++i) {
+                while ((SPI2->SR & SPI_FLAG_TXP) == RESET)
+                    ;
+                *((__IO uint8_t *)&SPI2->TXDR) = *((const uint8_t *)(datas + i));
+            }
+
+            len -= 0xFFFF;
         }
 
         // Wait transfer done
         while ((SPI2->SR & SPI_SR_EOT) == RESET);
         SPI2->IFCR |= (SPI_IFCR_TXTFC | SPI_IFCR_EOTC);
-
-        // change values
-        len -= tsize;
     }
 
     // Disable SPI transfer
@@ -262,6 +268,7 @@ void st7789_draw(void)
     uint8_t datas[128] = {0x0};
     static uint8_t loop = 0;
     uint32_t len = 128*160*16;
+    uint8_t pixels[128*160*16] = {0x0};
 
 #if 1
     // Trasnfer
@@ -281,11 +288,11 @@ void st7789_draw(void)
     }
     #else
     if (0 == loop)
-        memset(pixels, 0x1F, len>>2);
+        memset(pixels, 0x1F, len);
     else if (1 == loop)
-        memset(pixels, 0xF0, len>>2);
+        memset(pixels, 0xF0, len);
     else
-        memset(pixels, 0x0E, len>>2);
+        memset(pixels, 0x0E, len);
     #endif
     if (!(++loop % 3)) loop = 0;
 
