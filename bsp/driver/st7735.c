@@ -156,7 +156,7 @@ static void spi_polling_xfer_byte(uint8_t *datas, uint32_t len)
     SPI2->CR1 &= ~SPI_CR1_SPE;
 }
 
-static void spi_xfer_dma(uint8_t *datas, uint32_t len)
+static void spi_dma_xfer_halfword(uint8_t *buf, uint32_t len)
 {
 
 }
@@ -190,10 +190,8 @@ static void st7735_write_para(uint8_t cmd, uint8_t *para, uint16_t size)
 {
     LCD_CS_SELECT();
     LCD_CMD();
-    // HAL_SPI_Transmit(&hspi2, &cmd, 1, 0xFFFF);
     spi_polling_xfer_byte(&cmd, 1);
     LCD_DAT();
-    // HAL_SPI_Transmit(&hspi2, para, para_size, 0xFFFF);
     spi_polling_xfer_byte(para, size);
     LCD_CS_UNSELECT();
 }
@@ -217,8 +215,8 @@ void st7735_setup(void)
 
     st7735_hw_reset();
     HAL_Delay(10);
-    // software reset
     st7735_write_cmd(SWRESET);
+    HAL_Delay(10);
 
     st7735_read_para(RDID1, datas, 2);
     printf("RDID1:0x%02x 0x%02x\n", datas[0], datas[1]);
@@ -242,11 +240,6 @@ void st7735_setup(void)
     st7735_read_para(RDDIM, datas, 2);
     printf("RDDIM:0x%02x 0x%02x\n", datas[0], datas[1]);
 
-    st7735_hw_reset();
-    HAL_Delay(100);
-
-    st7735_write_cmd(INVON);
-
     st7735_write_cmd(SLPOUT);
     LCD_PWR_ON();
     st7735_write_cmd(DISPON);
@@ -264,55 +257,54 @@ void st7735_setup(void)
     datas[3] = 160-1;
     st7735_write_para(RASET, datas, 4);
 
-    // Set RGB666
+    // Set RGB565
     para = 0x65;
     st7735_write_cmd(COLMOD);
     st7735_write_data(&para, 1);
 
     st7735_read_para(RDDCOLMOD, datas, 2);
     printf("RDDCOLMOD:0x%02x 0x%02x\n", datas[0], datas[1]);
+
+    st7735_read_para(RDDST, datas, 5);
+    puts("RDDST");
+    for (uint8_t i = 0; i < 5; ++i)
+        printf("0x%02x ", datas[i]);
 #endif
 }
+
+#define BLUE    0x001F
+#define GREEN   0x07E0
+#define RED     0xF800
+#define BLACK   0x0000
+#define WHITE   0xFFFF
 
 void st7735_draw(void)
 {
     static uint8_t loop = 0;
     uint16_t data = 0xFFFF;
     uint32_t len = 128*160*2;
-    // uint8_t pixels[128*160*2] = {0x0};
     uint16_t pixels[128*160] = {0x0};
 
-    #if 1
-
     if (0 == loop)
-        data = 0x1F;
+        data = RED;
     else if (1 == loop)
-        data = 0x07E0;
+        data = GREEN;
+    else if (2 == loop)
+        data = BLUE;
+    else if (3 == loop)
+        data = WHITE;
     else
-        data = 0xF800;
-    for (uint32_t i = 0; i < 128*160; ++i) {
-        // pixels[2*i] = data>>8;
-        // pixels[2*i+1] = data;
+        data = BLACK;
+
+    for (uint32_t i = 0; i < 128*160; ++i)
         pixels[i] = data;
-    }
-    #else
 
-    if (0 == loop)
-        memset(pixels, 0xFF, len);
-    else if (1 == loop)
-        memset(pixels, 0x00, len);
-    else
-        memset(pixels, 0x0E, len);
-
-    #endif
-
-    if (!(++loop % 3)) loop = 0;
+    if (!(++loop % 5)) loop = 0;
 
     st7735_write_cmd(RAMWR);
 
     LCD_CS_SELECT();
     LCD_DAT();
-    // spi_polling_xfer_halfword(pixels, len>>1);
-    spi_polling_xfer_byte(pixels, len);
+    spi_polling_xfer_halfword(pixels, len>>1);
     LCD_CS_UNSELECT();
 }
