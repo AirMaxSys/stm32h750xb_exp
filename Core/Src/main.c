@@ -33,7 +33,7 @@
 #include <string.h>
 #include "led.h"
 #include "dbg_output.h"
-#include "st7789.h"
+#include "st7735.h"
 //#include "wireless.h"
 
 /* USER CODE END Includes */
@@ -115,11 +115,7 @@ int main(void)
   /* USER CODE BEGIN 2 */
   // wlan_sdio_enum();
     
-    LCD_RST_SELECT();
-    HAL_Delay(1);
-    LCD_RST_UNSELECT();
-
-    st7789_setup();
+    st7735_setup();
 
   /* USER CODE END 2 */
 
@@ -150,10 +146,10 @@ int main(void)
     printf("ID:0x%02x 0x%02x 0x%02x\r\n", data[0], data[1], data[2]);
 
 #endif
-    // st7789_setup();
+    // st7735_setup();
     uint32_t t1 = HAL_GetTick();
-    st7789_draw();
-    printf("T:%ld\n fps:%ld\n", (HAL_GetTick() - t1), (uint32_t)(1000/(HAL_GetTick() - t1)));
+    st7735_draw();
+    printf("T:%ld FPS:%ld\n", (HAL_GetTick() - t1), (uint32_t)(1000/(HAL_GetTick() - t1)));
   }
   /* USER CODE END 3 */
 }
