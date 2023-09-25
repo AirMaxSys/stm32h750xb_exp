@@ -165,6 +165,9 @@ static void spi_polling_xfer_byte(uint8_t *datas, uint32_t len)
 
 static void st7735_dma_setup(void)
 {
+    // setup SPI DMA enable
+    SPI2->CFG1 |= SPI_CFG1_TXDMAEN;
+
     // reset DMA CR parameters
     DMA1_Stream0->CR = 0x0;
 
@@ -183,14 +186,17 @@ static void st7735_dma_setup(void)
     //// DMA1_Stream0->CR |= DMA_SxCR_DBM;
 
     // configuration peripheral address
-    DMA1_Stream0->PAR = &(SPI2->TXDR);
+    DMA1_Stream0->PAR = (uint32_t)&(SPI2->TXDR);
 
     // setup DMAMUX - using DMAMUX1
     // configuration DMAREQ_ID in DMAMUX_CxCR
     // DMAMUX request number SPI2_RX_DMA(39) SPI2_TX_DMA(40)
-    MODIFY_REG(DMAMUX1->CCR, DMAMUX_CxCR_DMAREQ_ID, 40);
+    MODIFY_REG(DMAMUX1_Channel0->CCR, DMAMUX_CxCR_DMAREQ_ID, 40);
     //// DMAMUX1->CCR &= ~DMAMUX_CxCR_DMAREQ_ID;
     //// DMAMUX1->CCR |= 40;
+
+    // setup DMAMUX DMA requests generator channel
+    DMAMUX1_RequestGenerator0->RGCR |= DMAMUX_RGxCR_GE;
 
     // Do not enable DMA
 }
@@ -198,7 +204,7 @@ static void st7735_dma_setup(void)
 static void spi_dma_xfer_halfword(uint16_t *buf, uint32_t len)
 {
     DMA1_Stream0->CR &= DMA_SxCR_EN;
-    DMA1_Stream0->M1AR = (uint32_t *)buf;
+    DMA1_Stream0->M1AR = (uint32_t)buf;
     DMA1_Stream0->NDTR = len;
     DMA1_Stream0->CR |= DMA_SxCR_EN;
 }
@@ -253,6 +259,8 @@ void st7735_setup(void)
 {
     uint8_t para = 0x0;
     uint8_t datas[128] = {0x0};
+
+    st7735_dma_setup();
 
     st7735_hw_reset();
     HAL_Delay(10);
