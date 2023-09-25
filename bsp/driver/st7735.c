@@ -44,6 +44,13 @@
 #define RDID2       0xDB    // Read ID2
 #define RDID3       0xDC    // Read ID3
 
+#define BLUE    0x001F
+#define GREEN   0x07E0
+#define RED     0xF800
+#define BLACK   0x0000
+#define WHITE   0xFFFF
+
+uint16_t pixels[128*160] = {0x0};
 
 extern SPI_HandleTypeDef hspi2;
 
@@ -156,11 +163,45 @@ static void spi_polling_xfer_byte(uint8_t *datas, uint32_t len)
     SPI2->CR1 &= ~SPI_CR1_SPE;
 }
 
-static void spi_dma_xfer_halfword(uint8_t *buf, uint32_t len)
+static void st7735_dma_setup(void)
 {
+    // reset DMA CR parameters
+    DMA1_Stream0->CR = 0x0;
 
+    // DIR peripheral-to-memory (0x00)
+    // CIRC disable
+    // PINC disable
+    // MINC enable
+    DMA1_Stream0->CR |= DMA_SxCR_MINC;
+    // PSIZE half-word
+    MODIFY_REG(DMA1_Stream0->CR, DMA_SxCR_PSIZE, 0x1);
+    // MSIZE half-word
+    MODIFY_REG(DMA1_Stream0->CR, DMA_SxCR_MSIZE, 0x1);
+    // PL priority level high
+    MODIFY_REG(DMA1_Stream0->CR, DMA_SxCR_PL, 0x2);
+    // DBM double-buffer mode
+    //// DMA1_Stream0->CR |= DMA_SxCR_DBM;
+
+    // configuration peripheral address
+    DMA1_Stream0->PAR = &(SPI2->TXDR);
+
+    // setup DMAMUX - using DMAMUX1
+    // configuration DMAREQ_ID in DMAMUX_CxCR
+    // DMAMUX request number SPI2_RX_DMA(39) SPI2_TX_DMA(40)
+    MODIFY_REG(DMAMUX1->CCR, DMAMUX_CxCR_DMAREQ_ID, 40);
+    //// DMAMUX1->CCR &= ~DMAMUX_CxCR_DMAREQ_ID;
+    //// DMAMUX1->CCR |= 40;
+
+    // Do not enable DMA
 }
 
+static void spi_dma_xfer_halfword(uint16_t *buf, uint32_t len)
+{
+    DMA1_Stream0->CR &= DMA_SxCR_EN;
+    DMA1_Stream0->M1AR = (uint32_t *)buf;
+    DMA1_Stream0->NDTR = len;
+    DMA1_Stream0->CR |= DMA_SxCR_EN;
+}
 
 static void st7735_hw_reset(void)
 {
@@ -272,18 +313,11 @@ void st7735_setup(void)
 #endif
 }
 
-#define BLUE    0x001F
-#define GREEN   0x07E0
-#define RED     0xF800
-#define BLACK   0x0000
-#define WHITE   0xFFFF
-
 void st7735_draw(void)
 {
     static uint8_t loop = 0;
     uint16_t data = 0xFFFF;
     uint32_t len = 128*160*2;
-    uint16_t pixels[128*160] = {0x0};
 
     if (0 == loop)
         data = RED;
