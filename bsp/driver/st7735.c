@@ -201,12 +201,26 @@ static void st7735_dma_setup(void)
     // Do not enable DMA
 }
 
+// @param len [in] the number of element in buffer
 static void spi_dma_xfer_halfword(uint16_t *buf, uint32_t len)
 {
-    DMA1_Stream0->CR &= DMA_SxCR_EN;
-    DMA1_Stream0->M1AR = (uint32_t)buf;
-    DMA1_Stream0->NDTR = len;
-    DMA1_Stream0->CR |= DMA_SxCR_EN;
+    while (len > 0) {
+        DMA1_Stream0->CR &= DMA_SxCR_EN;
+        DMA1_Stream0->M1AR = (uint32_t)buf;
+        if (len < 0xFFFF) {
+            DMA1_Stream0->NDTR = len;
+            len = 0;
+        } else {
+            DMA1_Stream0->NDTR = 0xFFFF;
+            len -= 0xFFFF;
+            buf += 0xFFFF;
+        }
+        DMA1_Stream0->CR |= DMA_SxCR_EN;
+
+        // Wait transmit done
+        while (DMA1->LISR & DMA_LISR_TCIF0);
+        DMA1->LIFCR |= DMA_LIFCR_CTCIF0;
+    }
 }
 
 static void st7735_hw_reset(void)
@@ -347,6 +361,7 @@ void st7735_draw(void)
 
     LCD_CS_SELECT();
     LCD_DAT();
-    spi_polling_xfer_halfword(pixels, len>>1);
+    // spi_polling_xfer_halfword(pixels, len>>1);
+    spi_dma_xfer_halfword(pixels, len >> 1);
     LCD_CS_UNSELECT();
 }
