@@ -165,6 +165,9 @@ static void spi_polling_xfer_byte(uint8_t *datas, uint32_t len)
 
 static void st7735_dma_setup(void)
 {
+    // Clock enable
+    __HAL_RCC_DMA1_CLK_ENABLE();
+
     // setup SPI DMA enable
     SPI2->CFG1 |= SPI_CFG1_TXDMAEN;
 
@@ -177,13 +180,14 @@ static void st7735_dma_setup(void)
     // MINC enable
     DMA1_Stream0->CR |= DMA_SxCR_MINC;
     // PSIZE half-word
-    MODIFY_REG(DMA1_Stream0->CR, DMA_SxCR_PSIZE, 0x1);
+    MODIFY_REG(DMA1_Stream0->CR, DMA_SxCR_PSIZE, DMA_SxCR_PSIZE_0);
     // MSIZE half-word
-    MODIFY_REG(DMA1_Stream0->CR, DMA_SxCR_MSIZE, 0x1);
+    MODIFY_REG(DMA1_Stream0->CR, DMA_SxCR_MSIZE, DMA_SxCR_MSIZE_0);
     // PL priority level high
-    MODIFY_REG(DMA1_Stream0->CR, DMA_SxCR_PL, 0x2);
+    MODIFY_REG(DMA1_Stream0->CR, DMA_SxCR_PL, DMA_SxCR_PL_1);
     // DBM double-buffer mode
     //// DMA1_Stream0->CR |= DMA_SxCR_DBM;
+    printf("DMA CR:0x%08lx\n", DMA1_Stream0->CR);
 
     // configuration peripheral address
     DMA1_Stream0->PAR = (uint32_t)&(SPI2->TXDR);
@@ -197,6 +201,7 @@ static void st7735_dma_setup(void)
 
     // setup DMAMUX DMA requests generator channel
     DMAMUX1_RequestGenerator0->RGCR |= DMAMUX_RGxCR_GE;
+    printf("DMAMUX1 CCR:0x%08lx\n",DMAMUX1_RequestGenerator0->RGCR);
 
     // Do not enable DMA
 }
@@ -205,8 +210,8 @@ static void st7735_dma_setup(void)
 static void spi_dma_xfer_halfword(uint16_t *buf, uint32_t len)
 {
     while (len > 0) {
-        DMA1_Stream0->CR &= DMA_SxCR_EN;
-        DMA1_Stream0->M1AR = (uint32_t)buf;
+        DMA1_Stream0->CR &= ~DMA_SxCR_EN;
+        DMA1_Stream0->M0AR = (uint32_t)buf;
         if (len < 0xFFFF) {
             DMA1_Stream0->NDTR = len;
             len = 0;
@@ -218,7 +223,7 @@ static void spi_dma_xfer_halfword(uint16_t *buf, uint32_t len)
         DMA1_Stream0->CR |= DMA_SxCR_EN;
 
         // Wait transmit done
-        while (DMA1->LISR & DMA_LISR_TCIF0);
+        while ((DMA1->LISR & DMA_LISR_TCIF0) == RESET);
         DMA1->LIFCR |= DMA_LIFCR_CTCIF0;
     }
 }
@@ -339,7 +344,7 @@ void st7735_draw(void)
 {
     static uint8_t loop = 0;
     uint16_t data = 0xFFFF;
-    uint32_t len = 128*160*2;
+    uint32_t len = 128*160;
 
     if (0 == loop)
         data = RED;
@@ -352,7 +357,7 @@ void st7735_draw(void)
     else
         data = BLACK;
 
-    for (uint32_t i = 0; i < 128*160; ++i)
+    for (uint32_t i = 0; i < len; ++i)
         pixels[i] = data;
 
     if (!(++loop % 5)) loop = 0;
@@ -361,7 +366,7 @@ void st7735_draw(void)
 
     LCD_CS_SELECT();
     LCD_DAT();
-    // spi_polling_xfer_halfword(pixels, len>>1);
-    spi_dma_xfer_halfword(pixels, len >> 1);
+    // spi_polling_xfer_halfword(pixels, len);
+    spi_dma_xfer_halfword(pixels, len);
     LCD_CS_UNSELECT();
 }
