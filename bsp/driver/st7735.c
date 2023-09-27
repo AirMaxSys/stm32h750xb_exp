@@ -44,11 +44,11 @@
 #define RDID2       0xDB    // Read ID2
 #define RDID3       0xDC    // Read ID3
 
-#define BLUE    0x001F
-#define GREEN   0x07E0
-#define RED     0xF800
-#define BLACK   0x0000
-#define WHITE   0xFFFF
+#define BLUE        0x001F
+#define GREEN       0x07E0
+#define RED         0xF800
+#define BLACK       0x0000
+#define WHITE       0xFFFF
 
 uint16_t pixels[128*160] = {0x0};
 
@@ -174,7 +174,8 @@ static void st7735_dma_setup(void)
     // reset DMA CR parameters
     DMA1_Stream0->CR = 0x0;
 
-    // DIR peripheral-to-memory (0x00)
+    // DIR memory-to-peripheral (Tx)
+    MODIFY_REG(DMA1_Stream0->CR, DMA_SxCR_DIR, DMA_SxCR_DIR_0);
     // CIRC disable
     // PINC disable
     // MINC enable
@@ -200,8 +201,8 @@ static void st7735_dma_setup(void)
     //// DMAMUX1->CCR |= 40;
 
     // setup DMAMUX DMA requests generator channel
-    DMAMUX1_RequestGenerator0->RGCR |= DMAMUX_RGxCR_GE;
-    printf("DMAMUX1 CCR:0x%08lx\n",DMAMUX1_RequestGenerator0->RGCR);
+    // DMAMUX1_RequestGenerator0->RGCR |= DMAMUX_RGxCR_GE;
+    printf("DMAMUX1 CCR:0x%08lx 0x%08lx\n",DMAMUX1_RequestGenerator0->RGCR, DMAMUX1_RequestGenStatus->RGSR);
 
     // Do not enable DMA
 }
@@ -221,6 +222,11 @@ static void spi_dma_xfer_halfword(uint16_t *buf, uint32_t len)
             buf += 0xFFFF;
         }
         DMA1_Stream0->CR |= DMA_SxCR_EN;
+        printf("DMA LISR:0x%08lx\n", DMA1->LISR);
+        printf("DMA CR:0x%08lx M0AR:0x%08lx NDTR:0x%08lx\n", DMA1_Stream0->CR, DMA1_Stream0->M0AR, DMA1_Stream0->NDTR);
+        HAL_Delay(5);
+        printf("DMA CR:0x%08lx M0AR:0x%08lx NDTR:0x%08lx\n", DMA1_Stream0->CR, DMA1_Stream0->M0AR, DMA1_Stream0->NDTR);
+        printf("DMAMUX1 CCR:0x%08lx 0x%08lx\n",DMAMUX1_RequestGenerator0->RGCR, DMAMUX1_RequestGenStatus->RGSR);
 
         // Wait transmit done
         while ((DMA1->LISR & DMA_LISR_TCIF0) == RESET);
@@ -334,9 +340,10 @@ void st7735_setup(void)
     printf("RDDCOLMOD:0x%02x 0x%02x\n", datas[0], datas[1]);
 
     st7735_read_para(RDDST, datas, 5);
-    puts("RDDST");
+    puts("RDDST:");
     for (uint8_t i = 0; i < 5; ++i)
         printf("0x%02x ", datas[i]);
+    puts("");
 #endif
 }
 
