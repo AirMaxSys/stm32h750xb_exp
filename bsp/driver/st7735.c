@@ -56,7 +56,7 @@ extern SPI_HandleTypeDef hspi2;
 
 static void spi_polling_xfer_halfword(uint16_t *datas, uint32_t len)
 {
-    // setup SPI transfer data size
+    // setup SPI transfer data size 16bits
     MODIFY_REG(SPI2->CFG1, SPI_CFG1_DSIZE, SPI_DATASIZE_16BIT);
 
     // setup SPI is transmitter
@@ -204,25 +204,39 @@ static void st7735_dma_setup(void)
     // DMAMUX1_RequestGenerator0->RGCR |= DMAMUX_RGxCR_GE;
     printf("DMAMUX1 CCR:0x%08lx 0x%08lx\n",DMAMUX1_RequestGenerator0->RGCR, DMAMUX1_RequestGenStatus->RGSR);
 
-    // Do not enable DMA
+    printf("SPI CR1:0x%08lx SR:0x%08lx\n", SPI2->CR1, SPI2->SR);
 }
 
 // @param len [in] the number of element in buffer
 static void spi_dma_xfer_halfword(uint16_t *buf, uint32_t len)
 {
+    // setup SPI transfer data size 16bits
+    MODIFY_REG(SPI2->CFG1, SPI_CFG1_DSIZE, SPI_DATASIZE_16BIT);
+
+    // setup SPI is transmitter
+    SPI2->CR1 |= SPI_CR1_HDDIR;
+
+    // enable SPI
+    SPI2->CR1 |= SPI_CR1_SPE;
+
     while (len > 0) {
         DMA1_Stream0->CR &= ~DMA_SxCR_EN;
         DMA1_Stream0->M0AR = (uint32_t)buf;
+        // start SPI master transfer
+        SPI2->CR1 |= SPI_CR1_CSTART;
         if (len < 0xFFFF) {
+            SPI2->CR2 = len;
             DMA1_Stream0->NDTR = len;
             len = 0;
         } else {
+            SPI2->CR2 = 0xFFFF;
             DMA1_Stream0->NDTR = 0xFFFF;
             len -= 0xFFFF;
             buf += 0xFFFF;
         }
         DMA1_Stream0->CR |= DMA_SxCR_EN;
-        printf("DMA LISR:0x%08lx\n", DMA1->LISR);
+        printf("SPI CR1:0x%08lx SR:0x%08lx\n", SPI2->CR1, SPI2->SR);
+        printf("SPI2 TXDR:0x%08lx\n", *(volatile uint32_t *)&SPI2->TXDR); 
         printf("DMA CR:0x%08lx M0AR:0x%08lx NDTR:0x%08lx\n", DMA1_Stream0->CR, DMA1_Stream0->M0AR, DMA1_Stream0->NDTR);
         HAL_Delay(5);
         printf("DMA CR:0x%08lx M0AR:0x%08lx NDTR:0x%08lx\n", DMA1_Stream0->CR, DMA1_Stream0->M0AR, DMA1_Stream0->NDTR);
@@ -232,6 +246,10 @@ static void spi_dma_xfer_halfword(uint16_t *buf, uint32_t len)
         while ((DMA1->LISR & DMA_LISR_TCIF0) == RESET);
         DMA1->LIFCR |= DMA_LIFCR_CTCIF0;
     }
+    // Disable SPI
+    SPI2->CR2 &= ~SPI_CR1_SPE;
+    // Reset SPI transfer data size to 8bits
+    MODIFY_REG(SPI2->CFG1, SPI_CFG1_DSIZE, SPI_DATASIZE_8BIT);
 }
 
 static void st7735_hw_reset(void)

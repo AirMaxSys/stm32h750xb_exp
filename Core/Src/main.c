@@ -114,8 +114,9 @@ int main(void)
   MX_SPI1_Init();
   /* USER CODE BEGIN 2 */
   // wlan_sdio_enum();
-    
-    st7735_setup();
+
+  printf("SPI CR1:0x%08lx SR:0x%08lx\n", SPI2->CR1, SPI2->SR);
+  st7735_setup();
 
   /* USER CODE END 2 */
 
