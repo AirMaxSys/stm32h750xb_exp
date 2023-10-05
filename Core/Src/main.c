@@ -130,7 +130,7 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-    // led_blink(LED_COLOR_RED, 100);
+    led_blink(LED_COLOR_RED, 100);
 #if 0
     FLASH_CS_SELECT();
     data[0] = 0x90;
@@ -150,7 +150,6 @@ int main(void)
     printf("ID:0x%02x 0x%02x 0x%02x\r\n", data[0], data[1], data[2]);
 
 #endif
-    // st7735_setup();
     uint32_t t1 = HAL_GetTick();
     st7735_draw();
     printf("T:%ld FPS:%ld\n", (HAL_GetTick() - t1), (uint32_t)(1000/(HAL_GetTick() - t1)));

@@ -54,114 +54,91 @@ uint16_t ATTR_DMA_LOCATION pixels[128*160] = {0x0};
 
 extern SPI_HandleTypeDef hspi2;
 
+static void spi_polling_xfer_byte(uint8_t *datas, uint32_t len)
+{
+    uint16_t xfer_len = 0;
+
+    // setup SPI is transmitter
+    SPI2->CR1 |= SPI_CR1_HDDIR;
+
+    while (len > 0) {
+        if (len < 0xFFFF)
+            xfer_len = len;
+        else
+            xfer_len = 0xFFFF;
+
+        // wirte data size to Tx register TSIZE
+        SPI2->CR2 = xfer_len;
+
+        // enable SPI
+        SPI2->CR1 |= SPI_CR1_SPE;
+
+        // start SPI master transfer
+        SPI2->CR1 |= SPI_CR1_CSTART;
+
+        // start transfer spi data
+        for (uint16_t i = 0; i < xfer_len; ++i) {
+            while ((SPI2->SR & SPI_FLAG_TXP) == RESET)
+                ;
+            *((__IO uint8_t *)&SPI2->TXDR) = *((const uint8_t *)(datas + i));
+        }
+
+        len -= xfer_len;
+
+        // Wait transfer done
+        while ((SPI2->SR & SPI_SR_EOT) == RESET);
+        SPI2->IFCR |= (SPI_IFCR_TXTFC | SPI_IFCR_EOTC);
+
+        // Disable SPI transfer
+        SPI2->CR1 &= ~SPI_CR1_SPE;
+    }
+}
+
 static void spi_polling_xfer_halfword(uint16_t *datas, uint32_t len)
 {
+    uint16_t xfer_len = 0;
+
     // setup SPI transfer data size 16bits
     MODIFY_REG(SPI2->CFG1, SPI_CFG1_DSIZE, SPI_DATASIZE_16BIT);
 
     // setup SPI is transmitter
     SPI2->CR1 |= SPI_CR1_HDDIR;
 
-    // setup TSIZE value
-    if (len >= 0xFFFF)
-        SPI2->CR2 = 0xFFFF;
-    else
-        SPI2->CR2 = len;
-
-    // enable SPI
-    SPI2->CR1 |= SPI_CR1_SPE;
-    
     while (len > 0) {
+        if (len < 0xFFFF)
+            xfer_len = len;
+        else
+            xfer_len = 0xFFFF;
+
+        // wirte data size to Tx register TSIZE
+        SPI2->CR2 = xfer_len;
+
+        // enable SPI
+        SPI2->CR1 |= SPI_CR1_SPE;
+
         // start SPI master transfer
         SPI2->CR1 |= SPI_CR1_CSTART;
 
-        if (len < 0xFFFF) {
-            // wirte data size to Tx register TSIZE
-            SPI2->CR2 = len;
-
-            // start transfer spi data
-            for (uint16_t i = 0; i < len; ++i) {
-                while ((SPI2->SR & SPI_FLAG_TXP) == RESET)
-                    ;
-                *((__IO uint16_t *)&SPI2->TXDR) = *((const uint16_t *)(datas + i));
-            }
-
-            // change parameter value
-            len = 0;
-        } else {
-            SPI2->CR2 = 0xFFFF;
-
-            for (uint16_t i = 0; i < 0xFFFF; ++i) {
-                while ((SPI2->SR & SPI_FLAG_TXP) == RESET)
-                    ;
-                *((__IO uint16_t *)&SPI2->TXDR) = *((const uint16_t *)(datas + i));
-            }
-
-            len -= 0xFFFF;
+        // start transfer spi data
+        for (uint16_t i = 0; i < xfer_len; ++i) {
+            while ((SPI2->SR & SPI_FLAG_TXP) == RESET)
+                ;
+            *((__IO uint16_t *)&SPI2->TXDR) = *((const uint16_t *)(datas + i));
         }
+
+        len -= xfer_len;
 
         // Wait transfer done
         while ((SPI2->SR & SPI_SR_EOT) == RESET);
         SPI2->IFCR |= (SPI_IFCR_TXTFC | SPI_IFCR_EOTC);
-    }
 
-    // Disable SPI transfer
-    SPI2->CR1 &= ~SPI_CR1_SPE;
+        // Disable SPI transfer
+        SPI2->CR1 &= ~SPI_CR1_SPE;
+    }
     // Reset SPI transfer data size to 8bits
     MODIFY_REG(SPI2->CFG1, SPI_CFG1_DSIZE, SPI_DATASIZE_8BIT);
 }
 
-static void spi_polling_xfer_byte(uint8_t *datas, uint32_t len)
-{
-    // setup SPI is transmitter
-    SPI2->CR1 |= SPI_CR1_HDDIR;
-
-    // setup TSIZE value
-    if (len >= 0xFFFF)
-        SPI2->CR2 = 0xFFFF;
-    else
-        SPI2->CR2 = len;
-
-    // enable SPI
-    SPI2->CR1 |= SPI_CR1_SPE;
-    
-    while (len > 0) {
-        // start SPI master transfer
-        SPI2->CR1 |= SPI_CR1_CSTART;
-
-        if (len < 0xFFFF) {
-            // wirte data size to Tx register TSIZE
-            SPI2->CR2 = len;
-
-            // start transfer spi data
-            for (uint16_t i = 0; i < len; ++i) {
-                while ((SPI2->SR & SPI_FLAG_TXP) == RESET)
-                    ;
-                *((__IO uint8_t *)&SPI2->TXDR) = *((const uint8_t *)(datas + i));
-            }
-
-            // change parameter value
-            len = 0;
-        } else {
-            SPI2->CR2 = 0xFFFF;
-
-            for (uint16_t i = 0; i < 0xFFFF; ++i) {
-                while ((SPI2->SR & SPI_FLAG_TXP) == RESET)
-                    ;
-                *((__IO uint8_t *)&SPI2->TXDR) = *((const uint8_t *)(datas + i));
-            }
-
-            len -= 0xFFFF;
-        }
-
-        // Wait transfer done
-        while ((SPI2->SR & SPI_SR_EOT) == RESET);
-        SPI2->IFCR |= (SPI_IFCR_TXTFC | SPI_IFCR_EOTC);
-    }
-
-    // Disable SPI transfer
-    SPI2->CR1 &= ~SPI_CR1_SPE;
-}
 
 static void st7735_dma_setup(void)
 {
@@ -211,45 +188,43 @@ static void st7735_dma_setup(void)
 // @param len [in] the number of element in buffer
 static void spi_dma_xfer_halfword(uint16_t *buf, uint32_t len)
 {
+    uint16_t xfer_len = 0;
+
     // setup SPI transfer data size 16bits
     MODIFY_REG(SPI2->CFG1, SPI_CFG1_DSIZE, SPI_DATASIZE_16BIT);
 
     // setup SPI is transmitter
-    // SPI2->CR1 |= SPI_CR1_HDDIR;
+    SPI2->CR1 |= SPI_CR1_HDDIR;
 
     while (len > 0) {
+        if (len < 0xFFFF)
+            xfer_len = len;
+        else
+            xfer_len = 0xFFFF;
+
         // Disable DMA
         DMA1_Stream0->CR &= ~DMA_SxCR_EN;
         // Setup DMA buffer address
         DMA1_Stream0->M0AR = (uint32_t)buf;
-
-        if (len < 0xFFFF) {
-            SPI2->CR2 = len;
-            DMA1_Stream0->NDTR = len;
-            len = 0;
-        } else {
-            SPI2->CR2 = 0xFFFF;
-            DMA1_Stream0->NDTR = 0xFFFF;
-            len -= 0xFFFF;
-            buf += 0xFFFF;
-        }
-
+        // Setup SPI TSIZE
+        SPI2->CR2 = xfer_len;
+        // Setup DMA conunter size
+        DMA1_Stream0->NDTR = xfer_len;
         // Enable DMA
         DMA1_Stream0->CR |= DMA_SxCR_EN;
-
         // enable SPI
         SPI2->CR1 |= SPI_CR1_SPE;
-
         // start SPI master transfer
         SPI2->CR1 |= SPI_CR1_CSTART;
-
         // Wait transmit done
         while (!(DMA1->LISR & DMA_LISR_TCIF0) || !(SPI2->SR & SPI_IFCR_EOTC))
             ;
         DMA1->LIFCR |= DMA_LIFCR_CTCIF0;
-
         // Disable SPI
         SPI2->CR2 &= ~SPI_CR1_SPE;
+
+        len -= xfer_len;
+        buf += xfer_len;
     }
     // Reset SPI transfer data size to 8bits
     MODIFY_REG(SPI2->CFG1, SPI_CFG1_DSIZE, SPI_DATASIZE_8BIT);
@@ -399,7 +374,7 @@ void st7735_draw(void)
 
     LCD_CS_SELECT();
     LCD_DAT();
-    // spi_polling_xfer_halfword(pixels, len);
+    // spi_polling_xfer_halfword(pixels, len>>2);
     spi_dma_xfer_halfword(pixels, len>>4);
     LCD_CS_UNSELECT();
 }
