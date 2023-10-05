@@ -130,7 +130,7 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-    led_blink(LED_COLOR_RED, 500);
+    // led_blink(LED_COLOR_RED, 100);
 #if 0
     FLASH_CS_SELECT();
     data[0] = 0x90;

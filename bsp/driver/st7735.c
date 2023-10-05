@@ -217,18 +217,7 @@ static void spi_dma_xfer_halfword(uint16_t *buf, uint32_t len)
     // setup SPI is transmitter
     // SPI2->CR1 |= SPI_CR1_HDDIR;
 
-    // setup TSIZE value
-    if (len >= 0xFFFF)
-        SPI2->CR2 = 0xFFFF;
-    else
-        SPI2->CR2 = len;
-
-    // enable SPI
-    SPI2->CR1 |= SPI_CR1_SPE;
-
     while (len > 0) {
-        // start SPI master transfer
-        SPI2->CR1 |= SPI_CR1_CSTART;
         // Disable DMA
         DMA1_Stream0->CR &= ~DMA_SxCR_EN;
         // Setup DMA buffer address
@@ -248,19 +237,20 @@ static void spi_dma_xfer_halfword(uint16_t *buf, uint32_t len)
         // Enable DMA
         DMA1_Stream0->CR |= DMA_SxCR_EN;
 
-        // printf("SPI CR1:0x%08lx SR:0x%08lx\n", SPI2->CR1, SPI2->SR);
-        // printf("SPI2 TXDR:0x%08lx\n", *(volatile uint32_t *)&SPI2->TXDR);
-        // printf("DMA CR:0x%08lx M0AR:0x%08lx NDTR:0x%08lx\n", DMA1_Stream0->CR, DMA1_Stream0->M0AR, DMA1_Stream0->NDTR);
+        // enable SPI
+        SPI2->CR1 |= SPI_CR1_SPE;
+
+        // start SPI master transfer
+        SPI2->CR1 |= SPI_CR1_CSTART;
 
         // Wait transmit done
-        while (!(DMA1->LISR & DMA_LISR_TCIF0))
+        while (!(DMA1->LISR & DMA_LISR_TCIF0) || !(SPI2->SR & SPI_IFCR_EOTC))
             ;
-        // printf("trigger 0x%08lx 0x%08lx\n", DMA1->LISR, DMA1->HISR);
-        // printf("DMA CR:0x%08lx M0AR:0x%08lx NDTR:0x%08lx\n", DMA1_Stream0->CR, DMA1_Stream0->M0AR, DMA1_Stream0->NDTR);
         DMA1->LIFCR |= DMA_LIFCR_CTCIF0;
+
+        // Disable SPI
+        SPI2->CR2 &= ~SPI_CR1_SPE;
     }
-    // Disable SPI
-    SPI2->CR2 &= ~SPI_CR1_SPE;
     // Reset SPI transfer data size to 8bits
     MODIFY_REG(SPI2->CFG1, SPI_CFG1_DSIZE, SPI_DATASIZE_8BIT);
 }
@@ -410,6 +400,6 @@ void st7735_draw(void)
     LCD_CS_SELECT();
     LCD_DAT();
     // spi_polling_xfer_halfword(pixels, len);
-    spi_dma_xfer_halfword(pixels, len);
+    spi_dma_xfer_halfword(pixels, len>>4);
     LCD_CS_UNSELECT();
 }
