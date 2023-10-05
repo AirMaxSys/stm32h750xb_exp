@@ -8,7 +8,6 @@
 **********************************************************************************/
 
 #include "st7735.h"
-#include "dma.h"
 
 // st7735 commands definition
 #define NOP         0x00    // No operation
@@ -51,7 +50,7 @@
 #define BLACK       0x0000
 #define WHITE       0xFFFF
 
-uint16_t ATTR_DMA_BUF pixels[128*160] = {0x0};
+uint16_t ATTR_DMA_LOCATION pixels[128*160] = {0x0};
 
 extern SPI_HandleTypeDef hspi2;
 

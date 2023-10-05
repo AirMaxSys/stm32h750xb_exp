@@ -32,7 +32,7 @@ extern "C" {
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#define ATTR_DMA_LOCATION __attribute__((section(".dma_buffer")))
 /* USER CODE END Includes */
 
 /* Exported types ------------------------------------------------------------*/
