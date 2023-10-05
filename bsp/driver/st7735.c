@@ -8,6 +8,7 @@
 **********************************************************************************/
 
 #include "st7735.h"
+#include "dma.h"
 
 // st7735 commands definition
 #define NOP         0x00    // No operation
@@ -50,7 +51,7 @@
 #define BLACK       0x0000
 #define WHITE       0xFFFF
 
-uint16_t pixels[128*160] = {0x0};
+uint16_t ATTR_DMA_BUF pixels[128*160] = {0x0};
 
 extern SPI_HandleTypeDef hspi2;
 
@@ -185,7 +186,7 @@ static void st7735_dma_setup(void)
     // MSIZE half-word
     MODIFY_REG(DMA1_Stream0->CR, DMA_SxCR_MSIZE, DMA_SxCR_MSIZE_0);
     // PL priority level high
-    MODIFY_REG(DMA1_Stream0->CR, DMA_SxCR_PL, DMA_SxCR_PL_1);
+    // MODIFY_REG(DMA1_Stream0->CR, DMA_SxCR_PL, DMA_SxCR_PL_1);
     // DBM double-buffer mode
     //// DMA1_Stream0->CR |= DMA_SxCR_DBM;
     printf("DMA CR:0x%08lx\n", DMA1_Stream0->CR);
@@ -202,9 +203,10 @@ static void st7735_dma_setup(void)
 
     // setup DMAMUX DMA requests generator channel
     // DMAMUX1_RequestGenerator0->RGCR |= DMAMUX_RGxCR_GE;
-    printf("DMAMUX1 CCR:0x%08lx 0x%08lx\n",DMAMUX1_RequestGenerator0->RGCR, DMAMUX1_RequestGenStatus->RGSR);
+    printf("DMAMUX1 CCR:0x%08lx 0x%08lx\n", DMAMUX1_Channel0->CCR, DMAMUX1_RequestGenStatus->RGSR);
 
     printf("SPI CR1:0x%08lx SR:0x%08lx\n", SPI2->CR1, SPI2->SR);
+    printf("DMA FCR:0x%08lx\n", DMA1_Stream0->FCR);
 }
 
 // @param len [in] the number of element in buffer
@@ -214,16 +216,25 @@ static void spi_dma_xfer_halfword(uint16_t *buf, uint32_t len)
     MODIFY_REG(SPI2->CFG1, SPI_CFG1_DSIZE, SPI_DATASIZE_16BIT);
 
     // setup SPI is transmitter
-    SPI2->CR1 |= SPI_CR1_HDDIR;
+    // SPI2->CR1 |= SPI_CR1_HDDIR;
+
+    // setup TSIZE value
+    if (len >= 0xFFFF)
+        SPI2->CR2 = 0xFFFF;
+    else
+        SPI2->CR2 = len;
 
     // enable SPI
     SPI2->CR1 |= SPI_CR1_SPE;
 
     while (len > 0) {
-        DMA1_Stream0->CR &= ~DMA_SxCR_EN;
-        DMA1_Stream0->M0AR = (uint32_t)buf;
         // start SPI master transfer
         SPI2->CR1 |= SPI_CR1_CSTART;
+        // Disable DMA
+        DMA1_Stream0->CR &= ~DMA_SxCR_EN;
+        // Setup DMA buffer address
+        DMA1_Stream0->M0AR = (uint32_t)buf;
+
         if (len < 0xFFFF) {
             SPI2->CR2 = len;
             DMA1_Stream0->NDTR = len;
@@ -234,16 +245,19 @@ static void spi_dma_xfer_halfword(uint16_t *buf, uint32_t len)
             len -= 0xFFFF;
             buf += 0xFFFF;
         }
+
+        // Enable DMA
         DMA1_Stream0->CR |= DMA_SxCR_EN;
-        printf("SPI CR1:0x%08lx SR:0x%08lx\n", SPI2->CR1, SPI2->SR);
-        printf("SPI2 TXDR:0x%08lx\n", *(volatile uint32_t *)&SPI2->TXDR); 
-        printf("DMA CR:0x%08lx M0AR:0x%08lx NDTR:0x%08lx\n", DMA1_Stream0->CR, DMA1_Stream0->M0AR, DMA1_Stream0->NDTR);
-        HAL_Delay(5);
-        printf("DMA CR:0x%08lx M0AR:0x%08lx NDTR:0x%08lx\n", DMA1_Stream0->CR, DMA1_Stream0->M0AR, DMA1_Stream0->NDTR);
-        printf("DMAMUX1 CCR:0x%08lx 0x%08lx\n",DMAMUX1_RequestGenerator0->RGCR, DMAMUX1_RequestGenStatus->RGSR);
+
+        // printf("SPI CR1:0x%08lx SR:0x%08lx\n", SPI2->CR1, SPI2->SR);
+        // printf("SPI2 TXDR:0x%08lx\n", *(volatile uint32_t *)&SPI2->TXDR);
+        // printf("DMA CR:0x%08lx M0AR:0x%08lx NDTR:0x%08lx\n", DMA1_Stream0->CR, DMA1_Stream0->M0AR, DMA1_Stream0->NDTR);
 
         // Wait transmit done
-        while ((DMA1->LISR & DMA_LISR_TCIF0) == RESET);
+        while (!(DMA1->LISR & DMA_LISR_TCIF0))
+            ;
+        // printf("trigger 0x%08lx 0x%08lx\n", DMA1->LISR, DMA1->HISR);
+        // printf("DMA CR:0x%08lx M0AR:0x%08lx NDTR:0x%08lx\n", DMA1_Stream0->CR, DMA1_Stream0->M0AR, DMA1_Stream0->NDTR);
         DMA1->LIFCR |= DMA_LIFCR_CTCIF0;
     }
     // Disable SPI
@@ -264,6 +278,7 @@ static void st7735_write_cmd(uint8_t cmd)
     LCD_CS_SELECT();
     LCD_CMD();
     spi_polling_xfer_byte(&cmd, 1);
+    // HAL_SPI_Transmit(&hspi2, &cmd, 1, 0xFFFF);
     LCD_CS_UNSELECT();
 }
 
@@ -271,7 +286,8 @@ static void st7735_write_data(uint8_t *datas, uint16_t size)
 {
     LCD_CS_SELECT();
     LCD_DAT();
-    HAL_SPI_Transmit(&hspi2, datas, size, 0xFFFF);
+    // HAL_SPI_Transmit(&hspi2, datas, size, 0xFFFF);
+    spi_polling_xfer_byte(datas, size);
     LCD_CS_UNSELECT();
 }
 
@@ -292,9 +308,11 @@ static void st7735_read_para(uint8_t cmd, uint8_t *para, uint16_t para_size)
 {
     LCD_CS_SELECT();
     LCD_CMD();
-    HAL_SPI_Transmit(&hspi2, &cmd, 1, 0xFFFF);
+    // HAL_SPI_Transmit(&hspi2, &cmd, 1, 0xFFFF);
+    spi_polling_xfer_byte(&cmd, 1);
     LCD_DAT();
-    HAL_SPI_Receive(&hspi2, para, para_size, 0xFFFF);
+    // HAL_SPI_Receive(&hspi2, para, para_size, 0xFFFF);
+    // TODO: Receive data
     LCD_CS_UNSELECT();
 }
 
@@ -309,7 +327,7 @@ void st7735_setup(void)
     HAL_Delay(10);
     st7735_write_cmd(SWRESET);
     HAL_Delay(10);
-
+#if 0
     st7735_read_para(RDID1, datas, 2);
     printf("RDID1:0x%02x 0x%02x\n", datas[0], datas[1]);
     st7735_read_para(RDID2, datas, 2);
@@ -331,7 +349,7 @@ void st7735_setup(void)
 
     st7735_read_para(RDDIM, datas, 2);
     printf("RDDIM:0x%02x 0x%02x\n", datas[0], datas[1]);
-
+#endif
     st7735_write_cmd(SLPOUT);
     LCD_PWR_ON();
     st7735_write_cmd(DISPON);
@@ -353,7 +371,7 @@ void st7735_setup(void)
     para = 0x65;
     st7735_write_cmd(COLMOD);
     st7735_write_data(&para, 1);
-
+#if 0
     st7735_read_para(RDDCOLMOD, datas, 2);
     printf("RDDCOLMOD:0x%02x 0x%02x\n", datas[0], datas[1]);
 
@@ -362,6 +380,7 @@ void st7735_setup(void)
     for (uint8_t i = 0; i < 5; ++i)
         printf("0x%02x ", datas[i]);
     puts("");
+#endif
 #endif
 }
 
