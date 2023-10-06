@@ -182,7 +182,6 @@ static void st7735_dma_setup(void)
     printf("DMAMUX1 CCR:0x%08lx 0x%08lx\n", DMAMUX1_Channel0->CCR, DMAMUX1_RequestGenStatus->RGSR);
 
     printf("SPI CR1:0x%08lx SR:0x%08lx\n", SPI2->CR1, SPI2->SR);
-    printf("DMA FCR:0x%08lx\n", DMA1_Stream0->FCR);
 }
 
 // @param len [in] the number of element in buffer
@@ -217,11 +216,12 @@ static void spi_dma_xfer_halfword(uint16_t *buf, uint32_t len)
         // start SPI master transfer
         SPI2->CR1 |= SPI_CR1_CSTART;
         // Wait transmit done
-        while (!(DMA1->LISR & DMA_LISR_TCIF0) || !(SPI2->SR & SPI_IFCR_EOTC))
+        while (!(DMA1->LISR & DMA_LISR_TCIF0) || !(SPI2->SR & SPI_SR_EOT))
             ;
-        DMA1->LIFCR |= DMA_LIFCR_CTCIF0;
+        DMA1->LIFCR |= (DMA_LIFCR_CTCIF0);
+        SPI2->IFCR |= (SPI_IFCR_TXTFC | SPI_IFCR_EOTC);
         // Disable SPI
-        SPI2->CR2 &= ~SPI_CR1_SPE;
+        SPI2->CR1 &= ~SPI_CR1_SPE;
 
         len -= xfer_len;
         buf += xfer_len;
@@ -374,7 +374,7 @@ void st7735_draw(void)
 
     LCD_CS_SELECT();
     LCD_DAT();
-    // spi_polling_xfer_halfword(pixels, len>>2);
-    spi_dma_xfer_halfword(pixels, len>>4);
+    // spi_polling_xfer_halfword(pixels, len);
+    spi_dma_xfer_halfword(pixels, len);
     LCD_CS_UNSELECT();
 }
