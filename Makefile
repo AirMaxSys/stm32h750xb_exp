@@ -46,6 +46,8 @@ bsp/dirver/dbg_output.c \
 bsp/driver/wireless.c \
 bsp/driver/sdio.c \
 bsp/st7735.c \
+bsp/bsp_spi.c \
+bsp/w25q.c \
 Core/Src/main.c \
 Core/Src/gpio.c \
 Core/Src/adc.c \

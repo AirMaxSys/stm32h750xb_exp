@@ -2,7 +2,7 @@
 #define __SDIO_H__
 
 #include <stdint.h>
-#include "stm32h750xx.h" // sdmmc structure
+#include "stm32h7xx.h" // sdmmc structure
 
 #ifdef  __cplusplus
 extern "C" {

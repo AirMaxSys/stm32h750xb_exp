@@ -1,7 +1,6 @@
 #ifndef _WIRELESS_H_
 #define _WIRELESS_H_
 
-#include <stdio.h>
 #include <stdint.h>
 
 #ifdef  __cplusplus

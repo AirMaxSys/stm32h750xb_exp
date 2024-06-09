@@ -1,6 +1,5 @@
-#include <stdio.h>
-#include "stm32h750xx.h"
-#include "stm32h7xx_hal.h"
+#include "stm32h7xx.h"
+#include "stdio.h"
 
 #define DBG_UART        UART4
 extern UART_HandleTypeDef huart4;

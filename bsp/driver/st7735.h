@@ -1,11 +1,8 @@
 #ifndef _ST7789_H_
 #define _ST7789_H_
 
-#include "stm32h750xx.h"
-#include "stm32h7xx_hal.h"
+#include "stm32h7xx.h"
 #include "main.h"
-#include <stdio.h>
-#include <string.h>
 
 #ifdef __cplusplus
 extern "C" {

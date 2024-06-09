@@ -8,6 +8,9 @@
 **********************************************************************************/
 
 #include "st7735.h"
+#include "bsp_spi.h"
+#include "string.h"
+#include "stdio.h"
 
 // st7735 commands definition
 #define NOP         0x00    // No operation
@@ -51,93 +54,6 @@
 #define WHITE       0xFFFF
 
 uint16_t ATTR_DMA_LOCATION pixels[128*160] = {0x0};
-
-extern SPI_HandleTypeDef hspi2;
-
-static void spi_polling_xfer_byte(uint8_t *datas, uint32_t len)
-{
-    uint16_t xfer_len = 0;
-
-    // setup SPI is transmitter
-    SPI2->CR1 |= SPI_CR1_HDDIR;
-
-    while (len > 0) {
-        if (len < 0xFFFF)
-            xfer_len = len;
-        else
-            xfer_len = 0xFFFF;
-
-        // wirte data size to Tx register TSIZE
-        SPI2->CR2 = xfer_len;
-
-        // enable SPI
-        SPI2->CR1 |= SPI_CR1_SPE;
-
-        // start SPI master transfer
-        SPI2->CR1 |= SPI_CR1_CSTART;
-
-        // start transfer spi data
-        for (uint16_t i = 0; i < xfer_len; ++i) {
-            while ((SPI2->SR & SPI_FLAG_TXP) == RESET)
-                ;
-            *((__IO uint8_t *)&SPI2->TXDR) = *((const uint8_t *)(datas + i));
-        }
-
-        len -= xfer_len;
-
-        // Wait transfer done
-        while ((SPI2->SR & SPI_SR_EOT) == RESET);
-        SPI2->IFCR |= (SPI_IFCR_TXTFC | SPI_IFCR_EOTC);
-
-        // Disable SPI transfer
-        SPI2->CR1 &= ~SPI_CR1_SPE;
-    }
-}
-
-static void spi_polling_xfer_halfword(uint16_t *datas, uint32_t len)
-{
-    uint16_t xfer_len = 0;
-
-    // setup SPI transfer data size 16bits
-    MODIFY_REG(SPI2->CFG1, SPI_CFG1_DSIZE, SPI_DATASIZE_16BIT);
-
-    // setup SPI is transmitter
-    SPI2->CR1 |= SPI_CR1_HDDIR;
-
-    while (len > 0) {
-        if (len < 0xFFFF)
-            xfer_len = len;
-        else
-            xfer_len = 0xFFFF;
-
-        // wirte data size to Tx register TSIZE
-        SPI2->CR2 = xfer_len;
-
-        // enable SPI
-        SPI2->CR1 |= SPI_CR1_SPE;
-
-        // start SPI master transfer
-        SPI2->CR1 |= SPI_CR1_CSTART;
-
-        // start transfer spi data
-        for (uint16_t i = 0; i < xfer_len; ++i) {
-            while ((SPI2->SR & SPI_FLAG_TXP) == RESET)
-                ;
-            *((__IO uint16_t *)&SPI2->TXDR) = *((const uint16_t *)(datas + i));
-        }
-
-        len -= xfer_len;
-
-        // Wait transfer done
-        while ((SPI2->SR & SPI_SR_EOT) == RESET);
-        SPI2->IFCR |= (SPI_IFCR_TXTFC | SPI_IFCR_EOTC);
-
-        // Disable SPI transfer
-        SPI2->CR1 &= ~SPI_CR1_SPE;
-    }
-    // Reset SPI transfer data size to 8bits
-    MODIFY_REG(SPI2->CFG1, SPI_CFG1_DSIZE, SPI_DATASIZE_8BIT);
-}
 
 
 static void st7735_dma_setup(void)
@@ -317,6 +233,8 @@ void st7735_setup(void)
     st7735_write_cmd(SLPOUT);
     LCD_PWR_ON();
     st7735_write_cmd(DISPON);
+
+    st7735_write_cmd(TEON);
 #if 1
     // Set drawing window
     datas[0] = 0x0;
@@ -345,33 +263,28 @@ void st7735_setup(void)
         printf("0x%02x ", datas[i]);
     puts("");
 #endif
+    st7735_write_cmd(RAMWR);
 #endif
 }
 
 void st7735_draw(void)
 {
+    static const uint16_t len = 128*160;
     static uint8_t loop = 0;
-    uint16_t data = 0xFFFF;
-    uint32_t len = 128*160;
+    uint16_t colors[][5] = {
+        RED, GREEN, BLUE, WHITE, BLACK,
+        GREEN, BLUE, WHITE, BLACK, RED,
+        BLUE, WHITE, BLACK, RED, GREEN, 
+        WHITE, BLACK, RED, GREEN, BLUE,
+        BLACK, RED, GREEN, BLUE, WHITE,
+    };
 
-    if (0 == loop)
-        data = RED;
-    else if (1 == loop)
-        data = GREEN;
-    else if (2 == loop)
-        data = BLUE;
-    else if (3 == loop)
-        data = WHITE;
-    else
-        data = BLACK;
+    for (uint8_t i = 0; i < 5; ++i)
+        for (uint16_t j = 0; j < 4096; ++j)
+            pixels[j + i*4096] = colors[loop][i];
+    if (++loop == 5) loop = 0;
 
-    for (uint32_t i = 0; i < len; ++i)
-        pixels[i] = data;
-
-    if (!(++loop % 5)) loop = 0;
-
-    st7735_write_cmd(RAMWR);
-
+    // st7735_write_cmd(RAMWR);
     LCD_CS_SELECT();
     LCD_DAT();
     // spi_polling_xfer_halfword(pixels, len);

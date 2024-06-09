@@ -130,29 +130,12 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-    led_blink(LED_COLOR_RED, 100);
-#if 0
-    FLASH_CS_SELECT();
-    data[0] = 0x90;
-    data[1] = 0x0;
-    data[2] = 0x0;
-    data[3] = 0x0;
-    HAL_SPI_Transmit(&hspi1, data, 4, 0xFFFF);
-    HAL_SPI_TransmitReceive(&hspi1, &data[5], data, 2, 0xF);
-    FLASH_CS_UNSELECT();
-    printf("FALSH ID:0x%02x 0x%02x\r\n", data[0], data[1]);
+    uint32_t ts_begin = 0;
 
-    FLASH_CS_SELECT();
-    data[0] = 0x9F;
-    HAL_SPI_Transmit(&hspi1, data, 1, 0xFFFF);
-    HAL_SPI_TransmitReceive(&hspi1, &data[5], data, 3, 0xF);
-    FLASH_CS_UNSELECT();
-    printf("ID:0x%02x 0x%02x 0x%02x\r\n", data[0], data[1], data[2]);
-
-#endif
-    uint32_t t1 = HAL_GetTick();
+    led_blink(LED_COLOR_RED, 25);
+    ts_begin = HAL_GetTick();
     st7735_draw();
-    printf("T:%ld FPS:%ld\n", (HAL_GetTick() - t1), (uint32_t)(1000/(HAL_GetTick() - t1)));
+    printf("T:%ld FPS:%ld\n", (HAL_GetTick() - ts_begin), (uint32_t)(1000/(HAL_GetTick() - ts_begin)));
   }
   /* USER CODE END 3 */
 }

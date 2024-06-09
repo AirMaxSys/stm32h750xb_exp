@@ -6,8 +6,6 @@ extern "C" {
 #endif
 
 #include <stdint.h>
-#include <string.h>
-#include "gpio.h"
 
 #define LED_COLOR_RED   "red"
 #define LED_COLOR_BLUE  "blue"
