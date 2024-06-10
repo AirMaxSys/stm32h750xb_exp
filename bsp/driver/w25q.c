@@ -34,7 +34,7 @@ int w25q_init(spi_dev_t *dev, w25q_bus_enum bus)
     // Get manufacture ID and device ID
     if (bus == W25Q_BUS_STANDARD) {
         data = (W25Q_RMDI << 24);
-        spi_polling_xfer_halfword(dev, &data, 4);
+        spi_trans_polling(dev, &data, sizeof(data), 1);
     }
 
     return 0;

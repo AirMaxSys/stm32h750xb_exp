@@ -54,7 +54,9 @@
 #define WHITE       0xFFFF
 
 uint16_t ATTR_DMA_LOCATION pixels[128*160] = {0x0};
-
+spi_dev_t spi_st7735 = {
+    .spix = SPI2,
+};
 
 static void st7735_dma_setup(void)
 {
@@ -157,7 +159,7 @@ static void st7735_write_cmd(uint8_t cmd)
 {
     LCD_CS_SELECT();
     LCD_CMD();
-    spi_polling_xfer_byte(&cmd, 1);
+    spi_polling_xfer_byte(&spi_st7735, &cmd, 1);
     // HAL_SPI_Transmit(&hspi2, &cmd, 1, 0xFFFF);
     LCD_CS_UNSELECT();
 }
@@ -167,7 +169,7 @@ static void st7735_write_data(uint8_t *datas, uint16_t size)
     LCD_CS_SELECT();
     LCD_DAT();
     // HAL_SPI_Transmit(&hspi2, datas, size, 0xFFFF);
-    spi_polling_xfer_byte(datas, size);
+    spi_polling_xfer_byte(&spi_st7735, datas, size);
     LCD_CS_UNSELECT();
 }
 
@@ -176,9 +178,9 @@ static void st7735_write_para(uint8_t cmd, uint8_t *para, uint16_t size)
 {
     LCD_CS_SELECT();
     LCD_CMD();
-    spi_polling_xfer_byte(&cmd, 1);
+    spi_polling_xfer_byte(&spi_st7735, &cmd, 1);
     LCD_DAT();
-    spi_polling_xfer_byte(para, size);
+    spi_polling_xfer_byte(&spi_st7735, para, size);
     LCD_CS_UNSELECT();
 }
 
@@ -189,7 +191,7 @@ static void st7735_read_para(uint8_t cmd, uint8_t *para, uint16_t para_size)
     LCD_CS_SELECT();
     LCD_CMD();
     // HAL_SPI_Transmit(&hspi2, &cmd, 1, 0xFFFF);
-    spi_polling_xfer_byte(&cmd, 1);
+    spi_polling_xfer_byte(&spi_st7735, &cmd, 1);
     LCD_DAT();
     // HAL_SPI_Receive(&hspi2, para, para_size, 0xFFFF);
     // TODO: Receive data
@@ -288,6 +290,7 @@ void st7735_draw(void)
     LCD_CS_SELECT();
     LCD_DAT();
     // spi_polling_xfer_halfword(pixels, len);
-    spi_dma_xfer_halfword(pixels, len);
+    // spi_dma_xfer_halfword(pixels, len);
+    spi_trans_polling(&spi_st7735, pixels, sizeof(uint16_t), len);
     LCD_CS_UNSELECT();
 }
