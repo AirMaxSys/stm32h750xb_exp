@@ -149,15 +149,7 @@ SECTIONS
     _edata = .;        /* define a global symbol at data end */
   } >DTCMRAM AT> FLASH
 
- /* DMA buffer noly in D1 and D2 Domains*/ 
- .dma_buffer :
- {
-    . = ALIGN(4);
-    *(.dma_buffer)
-    *(.dma_buffer*)
-    . = ALIGN(4);
- } >RAM_D1
-
+  
   /* Uninitialized data section */
   . = ALIGN(4);
   .bss :
@@ -184,6 +176,8 @@ SECTIONS
     . = . + _Min_Stack_Size;
     . = ALIGN(8);
   } >DTCMRAM
+
+  
 
   /* Remove information from the standard libraries */
   /DISCARD/ :
